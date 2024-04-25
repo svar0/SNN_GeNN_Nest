@@ -6,13 +6,15 @@ import time
 sys.path.append("..")
 from Defaults import defaultSimulate as default
 from Helper import ClusterModelGeNN
+from Helper import GeNN_Models
 import psutil
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
     MatrixType = 0
-    FactorSize = 1
-    FactorTime = 1
+    FactorSize = 50
+    FactorTime = 2
     Savepath = "Data.pkl"
 
     if len(sys.argv) == 2:
@@ -56,10 +58,9 @@ if __name__ == '__main__':
               'Q': 20}
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
-    jep = 10.0  # clustering strength
+    jep = 4.0  # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-
     I_ths = [2.13,
              1.24]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] # 10,15,Hzh
@@ -72,18 +73,17 @@ if __name__ == '__main__':
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
     EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+    EI_Network.set_model_build_pipeline([EI_Network.setup_GeNN, EI_Network.create_populations,
+                                           EI_Network.create_stimulation, EI_Network.create_recording_devices,
+                                           EI_Network.connect, EI_Network.create_learning_synapses,
+                                           #lambda: EI_Network.create_learning_synapses("Test")
+                                       ])
     # Creates object which creates the EI clustered network in NEST
     Result = EI_Network.get_simulation(timeout=timeout)
     stopTime = time.time()
     Result['Timing']['Total'] = stopTime - startTime
     print("Total time     : %.4f s" % Result['Timing']['Total'])
-    del Result['spiketimes']
-    print(Result)
 
-    if EI_Network.get_parameter()['batch_size'] == 1:
-        with open(Savepath, 'ab') as outfile:
-            pickle.dump({'e_rate': Result['e_rate'][0], 'i_rate': Result['i_rate'][0], 'Timing': Result['Timing'],
-                         'params': Result['params']}, outfile)
-    else:
-        with open(Savepath, 'ab') as outfile:
-            pickle.dump(Result, outfile)
+    plt.figure()
+    plt.plot(Result['spiketimes'][0][0, :], Result['spiketimes'][0][1, :], '.', ms=0.5)
+    plt.show()
