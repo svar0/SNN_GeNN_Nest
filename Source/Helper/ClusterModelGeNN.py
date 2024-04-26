@@ -302,10 +302,10 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
 
         stdp_params = {"tau": 30.0,
-                       "rho": 0.,
-                       "eta": 0.002,
+                       "rho": 0.1,
+                       "eta": 0.0002,
                        "wMin": -10.0,
-                       "wMax": 10.}
+                       "wMax": 10.0}
         #stdp_tau = 3.0
 
         # define the synapses and connect the populations
@@ -324,27 +324,56 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
-                self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_GLOBALG", delaySteps,
-                                                      pre, post,
-                                                      symmetric_stdp, stdp_params, {"g": 0.0}, {},
-                                                      {},
-                                                      "ExpCurr", psc_E, {}, conn_params_EE
-                                                      )
+                if  j==i:
+                    continue
+                else:
+                    if j==(i+1):
+                        syn_dict={"g": 0.2}
+                    else:
+                        syn_dict={"g": 0.}
+                    self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
+                                                          pre, post,
+                                                          symmetric_stdp, stdp_params, syn_dict, {},
+                                                          {},
+                                                          "ExpCurr", psc_E, {}, conn_params_EE
+                                                          )
 
         #print('Creating synapses with Model: %s', Model)
+
+    # def create_stimulation(self):
+    #     """
+    #     Creates a current source as stimulation of the specified cluster/s.
+    #     """
+    #     if self.params['stim_clusters'] is not None:
+    #         cluster_stimulus = GeNN_Models.define_ClusterStim()
+    #         for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+    #             for jj, stim_cluster in enumerate(self.params['stim_clusters']):
+    #                 self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
+    #                                               self.Populations[0].get_Populations()[stim_cluster],
+    #                                               {"t_onset": start + self.params['warmup'],
+    #                                                "t_offset": end + self.params['warmup'],
+    #                                                "strength": self.params['stim_amp']}, {})
+
     def create_stimulation(self):
         """
-        Creates a current source as stimulation of the specified cluster/s.
+        Creates a current source for each cluster
         """
-        if self.params['stim_clusters'] is not None:
+        #self.Populations[0].get_Populations()
+        if self.params.get('stim_clusters') is None:
             cluster_stimulus = GeNN_Models.define_ClusterStim()
             for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-                for jj, stim_cluster in enumerate(self.params['stim_clusters']):
+                #for jj, stim_cluster in enumerate(self.params['stim_clusters']):
+                for jj, stim_cluster in enumerate(self.Populations[0].get_Populations()):
                     self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
-                                                  self.Populations[0].get_Populations()[stim_cluster],
-                                                  {"t_onset": start + self.params['warmup'],
-                                                   "t_offset": end + self.params['warmup'],
-                                                   "strength": self.params['stim_amp']}, {})
+                                              self.Populations[0].get_Populations()[stim_cluster],
+                                               {"t_onset": start + self.params['warmup'],
+                                               "t_offset": end + self.params['warmup'],
+                                               "strength": self.params['stim_amp']}, {})
+                    self.model.add_current_source(str(ii) + "_StimI_" + str(jj), cluster_stimulus,
+                                              self.Populations[1].get_Populations()[stim_cluster],
+                                              {"t_onset": start + self.params['warmup'],
+                                               "t_offset": end + self.params['warmup'],
+                                               "strength": self.params['stim_amp']}, {})
 
     def create_recording_devices(self):
         """
@@ -621,7 +650,7 @@ if __name__ == "__main__":
     spikes = EI_cluster.create_and_simulate()
     print(EI_cluster.get_parameter())
     plt.figure()
-    plt.plot(spikes[0][0, :], spikes[0][1, :], '.')
+    plt.plot(spikes[0][0, :], spikes[0][1, :], '.', markersize=1)
     plt.savefig('GeNN.png')
 
     del EI_cluster
