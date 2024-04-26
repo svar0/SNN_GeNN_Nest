@@ -189,7 +189,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
                                                           {"prob": self.params['ps'][0, 0]})
 
-        symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
                 if i == j:
@@ -289,35 +288,18 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                       "StaticPulse", {}, {"g": j_ii * jminus[1, 1]}, {}, {},
                                                       "ExpCurr", psc_I, {}, conn_params_II
                                                       )
-                print('Js: ', js / np.sqrt(N))
+
+        print('Js: ', js / np.sqrt(N))
 
 
-    #def create_learning_synapses(self, Model)
     def create_learning_synapses(self):
 
         """ Connects the excitatory and inhibitory populations with each other in the EI-clustered scheme
                 """
-        #  self.Populations[0] -> Excitatory super-population
-        #  self.Populations[1] -> Inhibitory super-population
-        # connectivity parameters
-        js = self.params['js']  # connection weights
-        N = self.params['N_E'] + self.params['N_I']  # total units
 
         delaySteps = int((self.params['delay'] + 0.5 * self.model.dT) // self.model.dT)
         psc_E = {"tau": self.params['tau_syn_ex']}  # synaptic time constant
-        psc_I = {"tau": self.params['tau_syn_in']}  # synaptic time constant
 
-        # if js are not given compute them so that sqrt(K) spikes equal v_thr-E_L and rows are balanced
-        if np.isnan(js).any():
-            js = ClusterHelper.calc_js(self.params)
-        js *= self.params['s']
-
-        # jminus is calculated so that row sums remain constant
-        if self.params['Q'] > 1:
-            jminus = (self.params['Q'] - self.params['jplus']) / float(self.params['Q'] - 1)
-        else:
-            self.params['jplus'] = np.ones((2, 2))
-            jminus = np.ones((2, 2))
 
         stdp_params = {"tau": 30.0,
                        "rho": 0.,
@@ -328,7 +310,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         # define the synapses and connect the populations
         # EE
-        j_ee = js[0, 0] / np.sqrt(N)
         if self.params['fixed_indegree']:
             K_EE = int(self.params['ps'][0, 0] * self.params['N_E'] / self.params['Q'])
             print('K_EE: ', K_EE)
@@ -343,71 +324,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
-                self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), self.params['matrixType'], delaySteps,
+                self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_GLOBALG", delaySteps,
                                                       pre, post,
-                                                      symmetric_stdp, stdp_params, {"g": jminus[0, 0] * j_ee}, {},
+                                                      symmetric_stdp, stdp_params, {"g": 0.0}, {},
                                                       {},
                                                       "ExpCurr", psc_E, {}, conn_params_EE
                                                       )
-                # EI
-                j_ei = js[0, 1] / np.sqrt(N)
-                if self.params['fixed_indegree']:
-                    K_EI = int(self.params['ps'][0, 1] * self.params['N_I'] / self.params['Q'])
-                    print('K_EI: ', K_EI)
-                    conn_params_EI = genn_model.init_connectivity("FixedNumberPreWithReplacement",
-                                                                  {"colLength": K_EI})
-                else:
-                    conn_params_EI = genn_model.init_connectivity("FixedProbability",
-                                                              {"prob": self.params['ps'][0, 1]})
-
-                for i, pre in enumerate(self.Populations[1].get_Populations()):
-                    for j, post in enumerate(self.Populations[0].get_Populations()):
-                        self.model.add_synapse_population(str(i) + "STDP_EI" + str(j), self.params['matrixType'],
-                                                              delaySteps,
-                                                              pre, post,
-                                                              symmetric_stdp, stdp_params, {"g": j_ei * jminus[0, 1]}, {},
-                                                              {},
-                                                              "ExpCurr", psc_I, {}, conn_params_EI
-                                                              )
-                # IE
-                j_ie = js[1, 0] / np.sqrt(N)
-
-                if self.params['fixed_indegree']:
-                    K_IE = int(self.params['ps'][1, 0] * self.params['N_E'] / self.params['Q'])
-                    print('K_IE: ', K_IE)
-                    conn_params_IE = genn_model.init_connectivity("FixedNumberPreWithReplacement",
-                                                                  {"colLength": K_IE})
-                else:
-                    conn_params_IE = genn_model.init_connectivity("FixedProbability",
-                                                                  {"prob": self.params['ps'][1, 0]})
-                for i, pre in enumerate(self.Populations[0].get_Populations()):
-                    for j, post in enumerate(self.Populations[1].get_Populations()):
-                        self.model.add_synapse_population(str(i) + "STDP_IE" + str(j), self.params['matrixType'],
-                                                              delaySteps,
-                                                              pre, post,
-                                                              symmetric_stdp, stdp_params, {"g": j_ie * jminus[1, 0]}, {}, {},
-                                                              "ExpCurr", psc_E, {}, conn_params_IE
-                                                              )
-
-                # II
-                j_ii = js[1, 1] / np.sqrt(N)
-                if self.params['fixed_indegree']:
-                    K_II = int(self.params['ps'][1, 1] * self.params['N_I'] / self.params['Q'])
-                    print('K_II: ', K_II)
-                    conn_params_II = genn_model.init_connectivity("FixedNumberPreWithReplacement",
-                                                                  {"colLength": K_II})
-                else:
-                    conn_params_II = genn_model.init_connectivity("FixedProbability",
-                                                                  {"prob": self.params['ps'][1, 1]})
-                for i, pre in enumerate(self.Populations[1].get_Populations()):
-                    for j, post in enumerate(self.Populations[1].get_Populations()):
-                        self.model.add_synapse_population(str(i) + "STDP_II" + str(j), self.params['matrixType'],
-                                                              delaySteps,
-                                                              pre, post,
-                                                              symmetric_stdp, stdp_params, {"g": j_ii * jminus[1, 1]}, {}, {},
-                                                              "ExpCurr", psc_I, {}, conn_params_II
-                                                              )
-                print('Js: ', js / np.sqrt(N))
 
         #print('Creating synapses with Model: %s', Model)
     def create_stimulation(self):
@@ -694,7 +616,8 @@ if __name__ == "__main__":
 
     EI_cluster = ClusteredNetworkGeNN(default, {'n_jobs': 4, 'warmup': 500, 'simtime': 1200, 'stim_clusters': [3],
                                                 'stim_amp': 2.0, 'stim_starts': [600.], 'stim_ends': [1000.],
-                                                'matrixType': "PROCEDURAL_GLOBALG"})
+                                                'matrixType': "PROCEDURAL_GLOBALG"
+                                                })
     spikes = EI_cluster.create_and_simulate()
     print(EI_cluster.get_parameter())
     plt.figure()
@@ -707,7 +630,8 @@ if __name__ == "__main__":
                                           {'n_jobs': 4, 'warmup': 1200, 'simtime': 1200,
                                            'stim_clusters': [3],
                                            'stim_amp': 0.5, 'stim_starts': [60.], 'stim_ends': [100.],
-                                           'matrixType': "SPARSE_GLOBALG", 'I_th_E': 0.0, 'I_th_I': 0.0}, batch_size=2,
+                                           'matrixType':  "SPARSE_GLOBALG",
+                                           'I_th_E': 0.0, 'I_th_I': 0.0}, batch_size=2,
                                           NModel=GeNN_Models.define_iaf_psc_exp_Ie_multibatch())
 
     # Name has to be changed because PyGeNN will be confused if two objects with the same reference are present

@@ -75,7 +75,8 @@ if __name__ == '__main__':
     EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
     EI_Network.set_model_build_pipeline([EI_Network.setup_GeNN, EI_Network.create_populations,
                                            EI_Network.create_stimulation, EI_Network.create_recording_devices,
-                                           EI_Network.connect, EI_Network.create_learning_synapses,
+                                           EI_Network.connect,
+                                           #EI_Network.create_learning_synapses,
                                            #lambda: EI_Network.create_learning_synapses("Test")
                                        ])
     # Creates object which creates the EI clustered network in NEST
