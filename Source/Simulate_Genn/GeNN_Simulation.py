@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
     MatrixType = 0
-    FactorSize = 50
+    FactorSize = 20
     FactorTime = 2
     Savepath = "Data.pkl"
 
@@ -45,8 +45,8 @@ if __name__ == '__main__':
 
     # Added to adjust number of cores used to the running machine
     CPUcount=psutil.cpu_count(logical = False)
-    if CPUcount>8:
-        CPUcount-=2
+    if CPUcount > 8:
+        CPUcount -= 2
 
     startTime = time.time()
     baseline = {'N_E': 80, 'N_I': 20,  # number of E/I neurons -> typical 4:1
@@ -77,13 +77,16 @@ if __name__ == '__main__':
                                            EI_Network.create_stimulation, EI_Network.create_recording_devices,
                                            EI_Network.connect,
                                            EI_Network.create_learning_synapses,
-                                           #lambda: EI_Network.create_learning_synapses("Test")
+                                           EI_Network.assign_elements_to_clusters
                                        ])
     # Creates object which creates the EI clustered network in NEST
     Result = EI_Network.get_simulation(timeout=timeout)
     stopTime = time.time()
     Result['Timing']['Total'] = stopTime - startTime
     print("Total time     : %.4f s" % Result['Timing']['Total'])
+    print("Cluster elements:", EI_Network.cluster_elements)
+    stim_details = EI_Network.create_stimulation()
+    print("Stimulation details:", stim_details)
 
     plt.figure()
     plt.plot(Result['spiketimes'][0][0, :], Result['spiketimes'][0][1, :], '.', ms=0.5)

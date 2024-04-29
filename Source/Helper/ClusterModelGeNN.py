@@ -42,6 +42,18 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.runs = 0
         self.NeuronModel = NModel
         self.Timing = {'Sim': [], 'Download': []}
+        self.cluster_elements = self.assign_elements_to_clusters()
+        self.stim_details = self.create_stimulation()
+
+    def assign_elements_to_clusters(self):
+        elements = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+                    'U', 'V', 'W', 'X', 'Y', 'Z']
+        num_clusters = self.params['Q']
+
+        if num_clusters > len(elements):
+            raise ValueError("Not enough elements")
+
+        return {i: elements[i] for i in range(num_clusters)}
 
     def clean_network(self):
         """
@@ -306,7 +318,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                        "eta": 0.0002,
                        "wMin": -10.0,
                        "wMax": 10.0}
-        #stdp_tau = 3.0
 
         # define the synapses and connect the populations
         # EE
@@ -321,19 +332,19 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
                                                           {"prob": self.params['ps'][0, 0]})
 
-        symmetric_stdp = GeNN_Models.define_symmetric_stdp()
+        asymmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
                 if  j==i:
                     continue
-                else:
-                    if j==(i+1):
-                        syn_dict={"g": 0.2}
-                    else:
-                        syn_dict={"g": 0.}
-                    self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
+                # else:
+                #     if j == (i+1):
+                #         syn_dict = {"g": 0.2}
+                #     else:
+                #         syn_dict = {"g": 0.}
+                self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, stdp_params, syn_dict, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -356,24 +367,30 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def create_stimulation(self):
         """
-        Creates a current source for each cluster
+        Creates a current source for each excitatory cluster
         """
-        #self.Populations[0].get_Populations()
-        if self.params.get('stim_clusters') is None:
+        stim_details = []
+        if self.params['stim_clusters'] is not None:
             cluster_stimulus = GeNN_Models.define_ClusterStim()
-            for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-                #for jj, stim_cluster in enumerate(self.params['stim_clusters']):
-                for jj, stim_cluster in enumerate(self.Populations[0].get_Populations()):
-                    self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
-                                              self.Populations[0].get_Populations()[stim_cluster],
-                                               {"t_onset": start + self.params['warmup'],
-                                               "t_offset": end + self.params['warmup'],
+            duration_per_stim = self.params['stim_ends'][0] - self.params['stim_starts'][0]
+
+            for jj, cluster in enumerate(self.Populations[0].get_Populations()):
+                element = self.cluster_elements[jj]
+                adjusted_start = self.params['stim_starts'][0] + jj * duration_per_stim
+                adjusted_end = self.params['stim_ends'][0] + jj * duration_per_stim
+                self.model.add_current_source(f"Stim_{element}_{jj}", cluster_stimulus, cluster,
+                                              {"t_onset": adjusted_start + self.params['warmup'],
+                                               "t_offset": adjusted_end + self.params['warmup'],
                                                "strength": self.params['stim_amp']}, {})
-                    self.model.add_current_source(str(ii) + "_StimI_" + str(jj), cluster_stimulus,
-                                              self.Populations[1].get_Populations()[stim_cluster],
-                                              {"t_onset": start + self.params['warmup'],
-                                               "t_offset": end + self.params['warmup'],
-                                               "strength": self.params['stim_amp']}, {})
+                stim_details = {
+                    'element': element,
+                    't_onset': adjusted_start + self.params['warmup'],
+                    't_offset': adjusted_end + self.params['warmup']
+                }
+
+                stim_details.append(stim_details)
+
+        return stim_details
 
     def create_recording_devices(self):
         """
@@ -398,7 +415,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         for ii in range(0, 5):
             try:
-                self.model.load(num_recording_timesteps=duration_timesteps)
+                self.model.load(num_recording_timesteps = duration_timesteps)
             except Exception as e:
                 pass
             if self.model._loaded:
@@ -420,7 +437,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             for jj in range(self.duration_timesteps):
                 self.model.step_time()
 
-    def get_spiketimes_section(self, timeZero=0):
+    def get_spiketimes_section(self, timeZero = 0):
         """
         Extracts spikes of all populations created in create_populations.
         Cuts the warmup period away (only if the section contained the warmup period) and sets time relative to end
@@ -434,7 +451,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         Spiketimes = GeNNHelper.extractSpiketimes(self.model, self.params, self.Populations, timeZero=timeZero)
         return Spiketimes
 
-    def simulate_and_get_recordings(self, timeZero=0):
+    def simulate_and_get_recordings(self, timeZero = 0):
         SectionResults = []
         for ii in range(self.runs):
             startSim = time.time()
