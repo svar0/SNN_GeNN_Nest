@@ -3,6 +3,7 @@ import numpy as np
 import time
 import pickle
 import sys
+import random
 
 sys.path.append("..")
 import signal
@@ -43,7 +44,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.NeuronModel = NModel
         self.Timing = {'Sim': [], 'Download': []}
         self.cluster_elements = self.assign_elements_to_clusters()
-        self.stim_details = self.create_stimulation()
+        #self.stim_details = self.create_stimulation()
 
     def assign_elements_to_clusters(self):
         elements = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
@@ -54,6 +55,19 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             raise ValueError("Not enough elements")
 
         return {i: elements[i] for i in range(num_clusters)}
+    def generate_input_sequences(self, num_sequences):
+        """
+        Generates arbitrary sequences of elements from the clusters.
+        """
+        clusters = self.assign_elements_to_clusters()
+        elements = list(clusters.values())
+        num_clusters = len(elements)
+        sequences = []
+
+        for _ in range(num_sequences):
+            sequence = random.choices(elements, k=num_clusters)
+            sequences.append(''.join(sequence))
+        return sequences
 
     def clean_network(self):
         """
@@ -306,11 +320,9 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def create_learning_synapses(self):
 
-        """ Connects the excitatory and inhibitory populations with each other in the EI-clustered scheme
-                """
 
         delaySteps = int((self.params['delay'] + 0.5 * self.model.dT) // self.model.dT)
-        psc_E = {"tau": self.params['tau_syn_ex']}  # synaptic time constant
+        psc_E = {"tau": self.params['tau_syn_ex']}
 
 
         stdp_params = {"tau": 30.0,
@@ -351,46 +363,47 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         #print('Creating synapses with Model: %s', Model)
 
-    # def create_stimulation(self):
-    #     """
-    #     Creates a current source as stimulation of the specified cluster/s.
-    #     """
-    #     if self.params['stim_clusters'] is not None:
-    #         cluster_stimulus = GeNN_Models.define_ClusterStim()
-    #         for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-    #             for jj, stim_cluster in enumerate(self.params['stim_clusters']):
-    #                 self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
-    #                                               self.Populations[0].get_Populations()[stim_cluster],
-    #                                               {"t_onset": start + self.params['warmup'],
-    #                                                "t_offset": end + self.params['warmup'],
-    #                                                "strength": self.params['stim_amp']}, {})
-
     def create_stimulation(self):
         """
-        Creates a current source for each excitatory cluster
+        Creates a current source as stimulation of the specified cluster/s.
         """
-        stim_details = []
+        print("stim")
+        stim_clusters = list(range(self.params['Q']))
         if self.params['stim_clusters'] is not None:
             cluster_stimulus = GeNN_Models.define_ClusterStim()
-            duration_per_stim = self.params['stim_ends'][0] - self.params['stim_starts'][0]
+            for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+                print("stim")
+                for jj, stim_cluster in enumerate(self.params['stim_clusters']):
+                    print("stim")
+                    self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
+                                                  self.Populations[0].get_Populations()[stim_cluster],
+                                                  {"t_onset": start + self.params['warmup'],
+                                                   "t_offset": end + self.params['warmup'],
+                                                   "strength": self.params['stim_amp']})
+                    print(
+                        f"Applying stimulation to cluster {jj} (Sequence: {stim_cluster}) at times {start} to {end} with strength {self.params['stim_amp']}")
 
-            for jj, cluster in enumerate(self.Populations[0].get_Populations()):
-                element = self.cluster_elements[jj]
-                adjusted_start = self.params['stim_starts'][0] + jj * duration_per_stim
-                adjusted_end = self.params['stim_ends'][0] + jj * duration_per_stim
-                self.model.add_current_source(f"Stim_{element}_{jj}", cluster_stimulus, cluster,
-                                              {"t_onset": adjusted_start + self.params['warmup'],
-                                               "t_offset": adjusted_end + self.params['warmup'],
-                                               "strength": self.params['stim_amp']}, {})
-                stim_details = {
-                    'element': element,
-                    't_onset': adjusted_start + self.params['warmup'],
-                    't_offset': adjusted_end + self.params['warmup']
-                }
 
-                stim_details.append(stim_details)
-
-        return stim_details
+    # def create_stimulation(self):
+    #    """
+    #    Creates a current source as stimulation of the specified cluster/s.
+    #    """
+    #    num_clusters = len(self.assign_elements_to_clusters())
+    #    if self.params['stim_clusters'] is not None:
+    #        cluster_stimulus = GeNN_Models.define_ClusterStim()
+    #        sequences = self.generate_input_sequences(num_clusters)
+    #        base_delay = 50
+    #        for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+    #            for i, stim_cluster in enumerate(sequences):
+    #                adjusted_start = start + self.params['warmup'] + i * base_delay
+    #                adjusted_end = end + self.params['warmup'] + i * base_delay
+    #                self.model.add_current_source(str(i) + "_StimE_" + str(ii), cluster_stimulus,
+    #                                              self.Populations[0].get_Populations()[stim_cluster],
+    #                                              {"t_onset": adjusted_start,
+    #                                               "t_offset": adjusted_end,
+    #                                               "strength": self.params['stim_amp']})
+    #                print(f"Applying stimulation to cluster {i} (Sequence: {stim_cluster}) at times {adjusted_start} to {adjusted_end} with strength {self.params['stim_amp']}")
+    #    print(f"Applying stimulation to cluster {num_clusters}")
 
     def create_recording_devices(self):
         """
@@ -549,7 +562,7 @@ class ClusteredNetworkGeNN_Timing(ClusteredNetworkGeNN):
             parameters (dict):      Dictionary with parameters which should be modified from their default values
         """
         super().__init__(defaultValues, parameters, batch_size=batch_size, NModel=NModel)
-        self.ModelBuildPipeline = [self.setup_GeNN, self.create_populations, self.create_stimulation,
+        self.ModelBuildPipeline = [self.setup_GeNN, self.create_populations, #self.create_stimulation,
                                    self.create_recording_devices, self.connect]
 
     def setup_network(self):

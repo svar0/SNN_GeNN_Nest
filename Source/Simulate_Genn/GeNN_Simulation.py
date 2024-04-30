@@ -55,7 +55,8 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
-              'Q': 20}
+              'Q': 20
+              }
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
     jep = 4.0  # clustering strength
@@ -72,12 +73,18 @@ if __name__ == '__main__':
         params['matrixType'] = "PROCEDURAL_GLOBALG"
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
+
     EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+    # Aribitary sequences(how many sequneces)
+    sequences = EI_Network.generate_input_sequences(5)
+    for seq in sequences:
+        print(list(seq))
     EI_Network.set_model_build_pipeline([EI_Network.setup_GeNN, EI_Network.create_populations,
-                                           EI_Network.create_stimulation, EI_Network.create_recording_devices,
+                                           EI_Network.create_stimulation,
+                                           EI_Network.create_recording_devices,
                                            EI_Network.connect,
                                            EI_Network.create_learning_synapses,
-                                           EI_Network.assign_elements_to_clusters
+                                           EI_Network.assign_elements_to_clusters,
                                        ])
     # Creates object which creates the EI clustered network in NEST
     Result = EI_Network.get_simulation(timeout=timeout)
@@ -85,9 +92,6 @@ if __name__ == '__main__':
     Result['Timing']['Total'] = stopTime - startTime
     print("Total time     : %.4f s" % Result['Timing']['Total'])
     print("Cluster elements:", EI_Network.cluster_elements)
-    stim_details = EI_Network.create_stimulation()
-    print("Stimulation details:", stim_details)
-
     plt.figure()
     plt.plot(Result['spiketimes'][0][0, :], Result['spiketimes'][0][1, :], '.', ms=0.5)
     plt.show()
