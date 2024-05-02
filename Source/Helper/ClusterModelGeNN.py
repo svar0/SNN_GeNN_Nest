@@ -53,8 +53,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         if num_clusters > len(elements):
             raise ValueError("Not enough elements")
-
         return {i: elements[i] for i in range(num_clusters)}
+
     def generate_input_sequences(self, num_sequences):
         """
         Generates arbitrary sequences of elements from the clusters.
@@ -155,26 +155,56 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         # create the neuron populations
         E_pops = []
         I_pops = []
+        # for q in range(self.params['Q']):
+        #     if self.params['V_m'] == 'rand':
+        #         E_neuron_init["V"] = [ClusterHelper.V_FPT(self.params['tau_E'], self.params['E_L'], I_xE,
+        #                                                   self.params['C_m'], T_0_E * np.random.rand(),
+        #                                                   self.params['V_th_E'], self.params['t_ref']) for i in
+        #                               range(int(self.params['N_E'] / self.params['Q']))]
+        #     E_pops.append(self.model.add_neuron_population("Egif" + str(q), int(self.params['N_E'] / self.params['Q']),
+        #                                                    self.NeuronModel, E_neuron_params, E_neuron_init))
+        #
+        # for q in range(self.params['Q']):
+        #     if self.params['V_m'] == 'rand':
+        #         I_neuron_init["V"] = [ClusterHelper.V_FPT(self.params['tau_I'], self.params['E_L'], I_xI,
+        #                                                   self.params['C_m'], T_0_I * np.random.rand(),
+        #                                                   self.params['V_th_E'], self.params['t_ref']) for i in
+        #                               range(int(self.params['N_I'] / self.params['Q']))]
+        #     I_pops.append(self.model.add_neuron_population("Igif" + str(q), int(self.params['N_I'] / self.params['Q']),
+        #                                                    self.NeuronModel, I_neuron_params, I_neuron_init))
+        # self.Populations = [GeNNHelper.SuperPopulation(E_pops, "Exc."), GeNNHelper.SuperPopulation(I_pops, "Inh.")]
 
         for q in range(self.params['Q']):
             if self.params['V_m'] == 'rand':
-                E_neuron_init["V"] = [ClusterHelper.V_FPT(self.params['tau_E'], self.params['E_L'], I_xE,
-                                                          self.params['C_m'], T_0_E * np.random.rand(),
-                                                          self.params['V_th_E'], self.params['t_ref']) for i in
-                                      range(int(self.params['N_E'] / self.params['Q']))]
-            E_pops.append(self.model.add_neuron_population("Egif" + str(q), int(self.params['N_E'] / self.params['Q']),
-                                                           self.NeuronModel, E_neuron_params, E_neuron_init))
+                E_V_init = [ClusterHelper.V_FPT(self.params['tau_E'], self.params['E_L'], I_xE,
+                                                self.params['C_m'], T_0_E * np.random.rand(),
+                                                self.params['V_th_E'], self.params['t_ref']) for _ in
+                            range(int(self.params['N_E'] / self.params['Q']))]
+                I_V_init = [ClusterHelper.V_FPT(self.params['tau_I'], self.params['E_L'], I_xI,
+                                                self.params['C_m'], T_0_I * np.random.rand(),
+                                                self.params['V_th_I'], self.params['t_ref']) for _ in
+                            range(int(self.params['N_I'] / self.params['Q']))]
+            else:
+                E_V_init = [self.params['V_m'] for _ in range(int(self.params['N_E'] / self.params['Q']))]
+                I_V_init = [self.params['V_m'] for _ in range(int(self.params['N_I'] / self.params['Q']))]
 
-        for q in range(self.params['Q']):
-            if self.params['V_m'] == 'rand':
-                I_neuron_init["V"] = [ClusterHelper.V_FPT(self.params['tau_I'], self.params['E_L'], I_xI,
-                                                          self.params['C_m'], T_0_I * np.random.rand(),
-                                                          self.params['V_th_E'], self.params['t_ref']) for i in
-                                      range(int(self.params['N_I'] / self.params['Q']))]
-            I_pops.append(self.model.add_neuron_population("Igif" + str(q), int(self.params['N_I'] / self.params['Q']),
-                                                           self.NeuronModel, I_neuron_params, I_neuron_init))
+            # Prepare initial settings dictionary
+            E_neuron_init = {'V': E_V_init,
+                             'RefracTime': [-0.1 for _ in range(int(self.params['N_E'] / self.params['Q']))]}
+            I_neuron_init = {'V': I_V_init,
+                             'RefracTime': [-0.1 for _ in range(int(self.params['N_I'] / self.params['Q']))]}
 
-        self.Populations = [GeNNHelper.SuperPopulation(E_pops, "Exc."), GeNNHelper.SuperPopulation(I_pops, "Inh.")]
+            # Adding neuron populations with initialized parameters
+            E_pop_name = f"E_Pop_{q}"
+            I_pop_name = f"I_Pop_{q}"
+            E_population = self.model.add_neuron_population(E_pop_name, int(self.params['N_E'] / self.params['Q']),
+                                                            self.NeuronModel, E_neuron_params, E_neuron_init)
+            I_population = self.model.add_neuron_population(I_pop_name, int(self.params['N_I'] / self.params['Q']),
+                                                            self.NeuronModel, I_neuron_params, I_neuron_init)
+            #print(f"Creating {len(E_pops)} excitatory and {len(I_pops)} inhibitory populations.")
+            self.Populations = [GeNNHelper.SuperPopulation(E_pops, "Exc."), GeNNHelper.SuperPopulation(I_pops, "Inh.")]
+            #print(
+            #    f"Stored {len(self.Populations[0].get_Populations())} excitatory and {len(self.Populations[1].get_Populations())} inhibitory populations in Populations.")
 
     def connect(self):
         """ Connects the excitatory and inhibitory populations with each other in the EI-clustered scheme
@@ -365,24 +395,32 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def create_stimulation(self):
         """
-        Creates a current source as stimulation of the specified cluster/s.
+        Creates a current source as stimulation of the specified cluster/s based on the sequence of elements.
         """
-        print("stim")
-        stim_clusters = list(range(self.params['Q']))
-        if self.params['stim_clusters'] is not None:
-            cluster_stimulus = GeNN_Models.define_ClusterStim()
-            for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-                print("stim")
-                for jj, stim_cluster in enumerate(self.params['stim_clusters']):
-                    print("stim")
-                    self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
-                                                  self.Populations[0].get_Populations()[stim_cluster],
-                                                  {"t_onset": start + self.params['warmup'],
-                                                   "t_offset": end + self.params['warmup'],
-                                                   "strength": self.params['stim_amp']})
-                    print(
-                        f"Applying stimulation to cluster {jj} (Sequence: {stim_cluster}) at times {start} to {end} with strength {self.params['stim_amp']}")
+        # Fetch the current element to cluster mapping
+        element_to_cluster = self.assign_elements_to_clusters()
 
+        # Generate a sequence of elements based on the simulation needs
+        sequence = self.generate_input_sequences(1)[0]
+
+        cluster_stimulus = GeNN_Models.define_ClusterStim()
+        for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+            element = sequence[ii % len(sequence)]
+            cluster_index = ord(element) - ord('A')
+
+            if cluster_index < len(self.Populations[0].get_Populations()):
+            #if cluster_index < len(self.Populations[0].get_Populations()):
+                self.model.add_current_source(
+                    f"Stim_{ii}",
+                    cluster_stimulus,
+                    self.Populations[0].get_Populations()[cluster_index],
+                    {"t_onset": start + self.params['warmup'],
+                     "t_offset": end + self.params['warmup'],
+                     "strength": self.params['stim_amp']}
+                )
+                print(f"Stimulating cluster {cluster_index} ({element}) from {start} to {end}")
+            else:
+                print(f"Warning: Cluster index {cluster_index} for element {element} is out of range.")
 
     # def create_stimulation(self):
     #    """
@@ -464,6 +502,13 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         Spiketimes = GeNNHelper.extractSpiketimes(self.model, self.params, self.Populations, timeZero=timeZero)
         return Spiketimes
 
+    # def get_spike_data(self):
+    #     spike_data = []
+    #     for pop in self.Populations:
+    #         times, ids = pop.get_data()  # Assuming a method like get_data() exists to fetch spike times and IDs
+    #         spike_data.append((times, ids))
+    #     return spike_data
+
     def simulate_and_get_recordings(self, timeZero = 0):
         SectionResults = []
         for ii in range(self.runs):
@@ -514,6 +559,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         """
         self.setup_network()
         self.build_model()
+        #self.build_model(force_rebuild=True)
         self.load_model(GPUspecificConstraint=50000 * 625000)
         return self.simulate_and_get_recordings()
 
