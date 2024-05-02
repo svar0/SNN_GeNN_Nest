@@ -372,53 +372,52 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
     #                                                   {"t_onset": start + self.params['warmup'],
     #                                                    "t_offset": end + self.params['warmup'],
     #                                                    "strength": self.params['stim_amp']}, {})
-    def create_stimulation(self):
-        """
-        Creates a current source as stimulation of the specified cluster/s.
-        """
-        if self.params['stim_clusters'] is not None:
-            cluster_stimulus = GeNN_Models.define_ClusterStim()
-            for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-                for jj, stim_cluster in enumerate(self.params['stim_clusters']):
-                    if stim_cluster < len(self.Populations[0].get_Populations()):
-                        self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
-                                                      self.Populations[0].get_Populations()[stim_cluster],
-                                                      {"t_onset": start + self.params['warmup'],
-                                                       "t_offset": end + self.params['warmup'],
-                                                       "strength": self.params['stim_amp']}, {})
-                    else:
-                        print(f"Warning: Cluster index {stim_cluster} is out of range.")
-
-
-
     # def create_stimulation(self):
     #     """
-    #     Creates a current source as stimulation of the specified cluster/s based on the sequence of elements.
+    #     Creates a current source as stimulation of the specified cluster/s.
     #     """
-    #     # Fetch the current element to cluster mapping
-    #     element_to_cluster = self.assign_elements_to_clusters()
+    #     if self.params['stim_clusters'] is not None:
+    #         cluster_stimulus = GeNN_Models.define_ClusterStim()
+    #         for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+    #             for jj, stim_cluster in enumerate(self.params['stim_clusters']):
+    #                 if stim_cluster < len(self.Populations[0].get_Populations()):
+    #                     self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
+    #                                                   self.Populations[0].get_Populations()[stim_cluster],
+    #                                                   {"t_onset": start + self.params['warmup'],
+    #                                                    "t_offset": end + self.params['warmup'],
+    #                                                    "strength": self.params['stim_amp']}, {})
+    #                 else:
+    #                     print(f"Warning: Cluster index {stim_cluster} is out of range.")
     #
-    #     # Generate a sequence of elements based on the simulation needs
-    #     sequence = self.generate_input_sequences(1)[0]
-    #
-    #     cluster_stimulus = GeNN_Models.define_ClusterStim()
-    #     for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-    #         element = sequence[ii % len(sequence)]
-    #         cluster_index = ord(element) - ord('A')
-    #
-    #         if cluster_index < len(self.Populations[0].get_Populations()):
-    #         #if cluster_index < len(self.Populations[0].get_Populations()):
-    #             self.model.add_current_source(
-    #                 f"Stim_{ii}",
-    #                 cluster_stimulus,
-    #                 self.Populations[0].get_Populations()[cluster_index],
-    #                 {"t_onset": start + self.params['warmup'],
-    #                  "t_offset": end + self.params['warmup'],
-    #                  "strength": self.params['stim_amp']}
-    #             )
-    #             print(f"Stimulating cluster {cluster_index} ({element}) from {start} to {end}")
-    #         else:
-    #             print(f"Warning: Cluster {cluster_index} for element {element} is out of range.")
+
+
+    def create_stimulation(self):
+        """
+        Creates a current source as stimulation of the specified cluster/s based on the sequence of elements.
+        """
+        # Fetch the current element to cluster mapping
+        element_to_cluster = self.assign_elements_to_clusters()
+
+        # Generate a sequence of elements based on the simulation needs
+        sequence = self.generate_input_sequences(1)[0]
+
+        cluster_stimulus = GeNN_Models.define_ClusterStim()
+        for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
+            element = sequence[ii % len(sequence)]
+            cluster_index = ord(element) - ord('A')
+
+            if cluster_index < len(self.Populations[0].get_Populations()):
+            #if cluster_index < len(self.Populations[0].get_Populations()):
+                self.model.add_current_source(
+                    f"Stim_{ii}",
+                    cluster_stimulus,
+                    self.Populations[0].get_Populations()[cluster_index],
+                    {"t_onset": start + self.params['warmup'],
+                     "t_offset": end + self.params['warmup'],
+                     "strength": self.params['stim_amp']},{})
+                print(f"Stimulating cluster {cluster_index} ({element}) from {start} to {end}")
+            else:
+                print(f"Warning: Cluster {cluster_index} for element {element} is out of range.")
 
 
     def create_recording_devices(self):
