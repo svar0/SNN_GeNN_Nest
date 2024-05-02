@@ -378,11 +378,16 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         """
         if self.params['stim_clusters'] is not None:
             cluster_stimulus = GeNN_Models.define_ClusterStim()
+
+            print("Number of Populations:", len(self.Populations[0].get_Populations()))
+            print("Stim Clusters:", self.params['stim_clusters'])
+
             valid_stim_clusters = [sc for sc in self.params['stim_clusters'] if
                                    sc < len(self.Populations[0].get_Populations())]
 
             for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
                 for jj, stim_cluster in enumerate(valid_stim_clusters):
+                    print(jj)
                     self.model.add_current_source(str(ii) + "_StimE_" + str(jj), cluster_stimulus,
                                                   self.Populations[0].get_Populations()[stim_cluster],
                                                   {"t_onset": start + self.params['warmup'],
@@ -390,7 +395,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                    "strength": self.params['stim_amp']}, {})
                 missing_clusters = set(self.params['stim_clusters']) - set(valid_stim_clusters)
                 if missing_clusters:
-                    print(f"Warning: Cluster indices {', '.join(map(str, missing_clusters))} are out of range.")
+                    print(f"Cluster {', '.join(map(str, missing_clusters))} is out of range.")
 
     # def create_stimulation(self):
     #     """
