@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
     MatrixType = 0
     FactorSize = 20
-    FactorTime = 2
+    FactorTime = 5
     Savepath = "Data.pkl"
 
     if len(sys.argv) == 2:
@@ -55,10 +55,12 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
-              'Q': 20, 'stim_clusters': [3], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750], 'stim_amp': 1.0
+              'Q': 20, 'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750], 'stim_amp': 1.0
               }
-    params['stim_starts'] = [params['warmup'] + i * 100 for i in range(params['Q'])]
-    params['stim_ends'] = [s + 50 for s in params['stim_starts']]
+    #params['stim_starts'] = [params['warmup'] + i * 100 for i in range(params['Q'])]
+    #params['stim_ends'] = [s + 50 for s in params['stim_starts']]
+    params['stim_starts'] = [params['warmup'] + i * 200 for i in range(params['Q'])]
+    params['stim_ends'] = [s + 100 for s in params['stim_starts']]
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
     jep = 4.0  # clustering strength
@@ -77,23 +79,26 @@ if __name__ == '__main__':
         params['matrixType'] = "SPARSE_GLOBALG"
 
     EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-    # Aribitary sequences(how many sequneces)
-    sequences = EI_Network.generate_input_sequences(1)
-    for seq in sequences:
-        print(list(seq))
-    EI_Network.set_model_build_pipeline([EI_Network.setup_GeNN, EI_Network.create_populations,
-                                           EI_Network.create_stimulation,
-                                           EI_Network.create_recording_devices,
-                                           EI_Network.connect,
-                                           EI_Network.create_learning_synapses,
-                                           EI_Network.assign_elements_to_clusters
-                                       ])
-    # Creates object which creates the EI clustered network in NEST
-    Result = EI_Network.get_simulation(timeout=timeout)
+    sequences = EI_Network.generate_input_sequences(2)
+    for i, seq in enumerate(sequences):
+        print(f"Sequence {i + 1}: {list(seq)}")
+
+        # Set up and run the simulation
+        EI_Network.set_model_build_pipeline([
+            EI_Network.setup_GeNN, EI_Network.create_populations,
+            EI_Network.create_stimulation, EI_Network.create_recording_devices,
+            EI_Network.connect, EI_Network.create_learning_synapses
+        ])
+
+        result = EI_Network.get_simulation(timeout=18000)
+
+        # Plotting the results for this sequence
+        plt.figure()
+        plt.plot(result['spiketimes'][0][0, :], result['spiketimes'][0][1, :], '.', ms=0.5)
+        plt.title(f"Spiketimes for Sequence {i + 1}")
+        plt.xlabel("Time (ms)")
+        plt.ylabel("Neuron Index")
+        plt.show()
+
     stopTime = time.time()
-    Result['Timing']['Total'] = stopTime - startTime
-    print("Total time     : %.4f s" % Result['Timing']['Total'])
-    print("Cluster elements:", EI_Network.cluster_elements)
-    plt.figure()
-    plt.plot(Result['spiketimes'][0][0, :], Result['spiketimes'][0][1, :], '.', ms=0.5)
-    plt.show()
+    print("Total simulation time: %.4f seconds" % (stopTime - startTime))
