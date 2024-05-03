@@ -83,24 +83,19 @@ if __name__ == '__main__':
     for sequence in sequences:
         print(f"Running simulation for sequence: {sequence}")
 
-        # Set up the model build pipeline with the current sequence
         EI_Network.set_model_build_pipeline([
             lambda: EI_Network.setup_GeNN(Name="EICluster" + str(sequence)),
-            # Unique name for each sequence to avoid conflicts
             EI_Network.create_populations,
-            lambda: EI_Network.create_stimulation(sequence),  # Pass the current sequence to stimulation
+            lambda: EI_Network.create_stimulation(sequence),
             EI_Network.create_recording_devices,
             EI_Network.connect,
             EI_Network.prepare_global_parameters
         ])
-
-        # Set up and run the network
         EI_Network.setup_network()
         EI_Network.build_model()
-        EI_Network.load_model()  # Ensure model is loaded with current setup
+        EI_Network.load_model()
         spiketimes = EI_Network.simulate_and_get_recordings()
 
-        # Output the simulation results
         plt.figure()
         plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence}")
