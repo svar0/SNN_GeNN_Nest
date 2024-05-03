@@ -357,33 +357,23 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
 
-    def create_stimulation(self):
-        """
-        Creates a current source as stimulation of the specified cluster/s based on the sequence of elements.
-        """
-        # Fetch the current element to cluster mapping
-        element_to_cluster = self.assign_elements_to_clusters()
-
-        # Generate a sequence of elements based on the simulation needs
-        sequence = self.generate_input_sequences(1)[0]
-
+    def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
-        for ii, (start, end) in enumerate(zip(self.params['stim_starts'], self.params['stim_ends'])):
-            element = sequence[ii % len(sequence)]
-            cluster_index = ord(element) - ord('A')
+        stim_starts = [self.params['warmup'] + i * 200 for i in range(len(sequence))]
+        stim_ends = [s + 100 for s in stim_starts]
 
+        for ii, element in enumerate(sequence):
+            cluster_index = ord(element) - ord('A')
             if cluster_index < len(self.Populations[0].get_Populations()):
                 self.model.add_current_source(
-                    f"Stim_{ii}",
+                    f"Stim_{element}_{ii}",
                     cluster_stimulus,
                     self.Populations[0].get_Populations()[cluster_index],
-                    {"t_onset": start + self.params['warmup'],
-                     "t_offset": end + self.params['warmup'],
-                     "strength": self.params['stim_amp']},{})
-                print(f"Stimulating cluster {cluster_index} ({element}) from {start} to {end}")
-            else:
-                print(f"Warning: Cluster {cluster_index} for element {element} is out of range.")
-
+                    {"t_onset": stim_starts[ii],
+                     "t_offset": stim_ends[ii],
+                     "strength": self.params['stim_amp']}, {}
+                )
+                print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
     def create_recording_devices(self):
         """
@@ -494,7 +484,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         """
         self.setup_network()
         self.build_model()
-        #self.build_model(force_rebuild=True)
         self.load_model(GPUspecificConstraint=50000 * 625000)
         return self.simulate_and_get_recordings()
 
