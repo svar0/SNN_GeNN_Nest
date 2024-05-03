@@ -313,7 +313,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         print('Js: ', js / np.sqrt(N))
 
-
     def create_learning_synapses(self):
 
 
