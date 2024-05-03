@@ -80,25 +80,56 @@ if __name__ == '__main__':
 
     EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
     sequences = EI_Network.generate_input_sequences(2)
-    for i, seq in enumerate(sequences):
-        print(f"Sequence {i + 1}: {list(seq)}")
+    for sequence in sequences:
+        print(f"Running simulation for sequence: {sequence}")
 
-        # Set up and run the simulation
+        # Set up the model build pipeline with the current sequence
         EI_Network.set_model_build_pipeline([
-            EI_Network.setup_GeNN, EI_Network.create_populations,
-            EI_Network.create_stimulation, EI_Network.create_recording_devices,
-            EI_Network.connect, EI_Network.create_learning_synapses
+            lambda: EI_Network.setup_GeNN(Name="EICluster" + str(sequence)),
+            # Unique name for each sequence to avoid conflicts
+            EI_Network.create_populations,
+            lambda: EI_Network.create_stimulation(sequence),  # Pass the current sequence to stimulation
+            EI_Network.create_recording_devices,
+            EI_Network.connect,
+            EI_Network.prepare_global_parameters
         ])
 
-        result = EI_Network.get_simulation(timeout=18000)
+        # Set up and run the network
+        EI_Network.setup_network()
+        EI_Network.build_model()
+        EI_Network.load_model()  # Ensure model is loaded with current setup
+        spiketimes = EI_Network.simulate_and_get_recordings()
 
-        # Plotting the results for this sequence
+        # Output the simulation results
         plt.figure()
-        plt.plot(result['spiketimes'][0][0, :], result['spiketimes'][0][1, :], '.', ms=0.5)
-        plt.title(f"Spiketimes for Sequence {i + 1}")
+        plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
+        plt.title(f"Spiketimes for Sequence: {sequence}")
         plt.xlabel("Time (ms)")
         plt.ylabel("Neuron Index")
         plt.show()
 
-    stopTime = time.time()
-    print("Total simulation time: %.4f seconds" % (stopTime - startTime))
+    print("Simulation completed for all sequences.")
+
+    # EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+    # sequences = EI_Network.generate_input_sequences(2)
+    # for i, seq in enumerate(sequences):
+    #     print(f"Sequence {i + 1}: {list(seq)}")
+    #
+    #     EI_Network.setup_network()
+    #     EI_Network.create_stimulation(seq)
+    #     EI_Network.create_populations()
+    #     EI_Network.reinitalizeModel()
+    #     EI_Network.create_recording_devices()
+    #     EI_Network.connect()
+    #     EI_Network.create_learning_synapses()
+    #     result = EI_Network.get_simulation(timeout=18000)
+    #
+    #     plt.figure()
+    #     plt.plot(result['spiketimes'][0][0, :], result['spiketimes'][0][1, :], '.', ms=0.5)
+    #     plt.title(f"Spiketimes for Sequence {i + 1}")
+    #     plt.xlabel("Time (ms)")
+    #     plt.ylabel("Neuron Index")
+    #     plt.show()
+    #     stopTime = time.time()
+    #     print("Total simulation time: %.4f seconds" % (stopTime - startTime))
+    #
