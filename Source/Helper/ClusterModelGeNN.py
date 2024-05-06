@@ -354,7 +354,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.}
                 synapse = self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.001}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -396,17 +396,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             pre_pop_size = pre.size
             post_pop_size = post.size
             synapse.pull_var_from_device('g')
-            weight_array = synapse.get_var_values('g').view(np.float32)
-
             weight_matrix = np.zeros((pre_pop_size, post_pop_size), dtype=np.float32)
-
-            if hasattr(synapse, 'get_sparse_indices'):
-                indices = synapse.get_sparse_indices()
-                for idx, (pre_idx, post_idx) in enumerate(indices):
-                    weight_matrix[pre_idx, post_idx] = weight_array[idx]
-            else:
-                print("No method for getting sparse indices")
-
             synapse_name = f"{pre.name}_to_{post.name}"
             self.synapse_matrices[synapse_name] = weight_matrix
 
@@ -577,7 +567,7 @@ class ClusteredNetworkGeNN_Timing(ClusteredNetworkGeNN):
             parameters (dict):      Dictionary with parameters which should be modified from their default values
         """
         super().__init__(defaultValues, parameters, batch_size=batch_size, NModel=NModel)
-        self.ModelBuildPipeline = [self.setup_GeNN, self.create_populations, #self.create_stimulation,
+        self.ModelBuildPipeline = [self.setup_GeNN, self.create_populations,
                                    self.create_recording_devices, self.connect]
 
     def setup_network(self):
