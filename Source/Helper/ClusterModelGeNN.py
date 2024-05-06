@@ -363,8 +363,15 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
-        stim_starts = [self.params['warmup'] + i * 200 for i in range(len(sequence))]
-        stim_ends = [s + 100 for s in stim_starts]
+
+        stim_starts = []
+        stim_ends = []
+        current_start = self.params['warmup']
+
+        for idx, _ in enumerate(sequence):
+            stim_starts.append(current_start)
+            stim_ends.append(current_start + self.params['stim_duration'])
+            current_start += self.params['stim_duration'] + self.params['inter_stim_delay']
 
         for ii, element in enumerate(sequence):
             cluster_index = ord(element) - ord('A')
@@ -379,35 +386,34 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
-    # def extract_and_save_synapse_weights(self):
-    #     self.synapse_matrices = {}
-    #     if not self.model or not hasattr(self, 'synapses'):
-    #         print("Model or synapses not initialized.")
-    #         return
-    #
-    #     for synapse in self.synapses:
-    #         if not hasattr(synapse, 'pull_var_from_device'):
-    #             print(f"Synapse {synapse} does not support pulling variables.")
-    #             continue
-    #
-    #         pre_pop, post_pop = self.synapse_ref[synapse]
-    #         pre_pop_size = pre_pop.size
-    #         post_pop_size = post_pop.size
-    #
-    #         # Access the _loaded property directly if it's the correct one as per the error suggestion
-    #         if self.model._loaded and synapse in self.model.synapse_populations:
-    #             try:
-    #                 synapse.pull_var_from_device('g')
-    #                 weight_array = synapse.get_var_values('g').view(np.float32)
-    #                 weight_matrix = weight_array.reshape(pre_pop_size, post_pop_size)
-    #                 synapse_name = f"{pre_pop.name}_to_{post_pop.name}"
-    #                 self.synapse_matrices[synapse_name] = weight_matrix
-    #             except ReferenceError as e:
-    #                 print(f"Failed to pull variable for {synapse_name}: {str(e)}")
-    #         else:
-    #             print(f"Model not loaded or synapse {synapse} not part of model.")
-    #
-    #     return self.synapse_matrices
+    def extract_and_save_synapse_weights(self):
+        self.synapse_matrices = {}
+        if not self.model or not hasattr(self, 'synapses'):
+            print("Model or synapses not initialized.")
+            return
+
+        for synapse in self.synapses:
+            if not hasattr(synapse, 'pull_var_from_device'):
+                print(f"Synapse {synapse} does not support pulling variables.")
+                continue
+
+            pre_pop, post_pop = self.synapse_ref[synapse]
+            pre_pop_size = pre_pop.size
+            post_pop_size = post_pop.size
+
+            if self.model._loaded and synapse in self.model.synapse_populations:
+                try:
+                    synapse.pull_var_from_device('g')
+                    weight_array = synapse.get_var_values('g').view(np.float32)
+                    weight_matrix = weight_array.reshape(pre_pop_size, post_pop_size)
+                    synapse_name = f"{pre_pop.name}_to_{post_pop.name}"
+                    self.synapse_matrices[synapse_name] = weight_matrix
+                except ReferenceError as e:
+                    print(f"Failed to pull variable for {synapse_name}: {str(e)}")
+            else:
+                print(f"Model not loaded or synapse {synapse} not part of model.")
+
+        return self.synapse_matrices
 
     def plot_weight_matrix(self):
         for name, matrix in self.synapse_matrices.items():
