@@ -4,6 +4,7 @@ import time
 import pickle
 import sys
 import random
+import matplotlib.pyplot as plt
 
 sys.path.append("..")
 import signal
@@ -357,9 +358,10 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
-                #print(f"Creating STDP synapse between {pre.name} and {post.name}")
+                print(f"Creating STDP synapse between {pre.name} and {post.name}")
                 self.synapses.append(synapse)
                 self.synapse_ref[synapse] = (pre, post)
+                synapse.weight_recording_enabled = True
 
     def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
@@ -385,56 +387,38 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                      "strength": self.params['stim_amp']}, {}
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
-
-    def extract_and_save_synapse_weights(self):
+    def make_synapse_matrices(self):
         self.synapse_matrices = {}
-        if not self.model or not hasattr(self, 'synapses'):
-            print("Model or synapses not initialized.")
-            return
+        self.connectivity_matrices = {}
 
         for synapse in self.synapses:
-            if not hasattr(synapse, 'pull_var_from_device'):
-                print(f"Synapse {synapse} does not support pulling variables.")
-                continue
+            pre, post = self.synapse_ref[synapse]
+            pre_pop_size = pre.size
+            post_pop_size = post.size
+            synapse.pull_var_from_device('g')
+            weight_array = synapse.get_var_values('g').view(np.float32)
 
-            pre_pop, post_pop = self.synapse_ref[synapse]
-            pre_pop_size = pre_pop.size
-            post_pop_size = post_pop.size
+            weight_matrix = np.zeros((pre_pop_size, post_pop_size), dtype=np.float32)
 
-            if self.model._loaded and synapse in self.model.synapse_populations:
-                try:
-                    synapse.pull_var_from_device('g')
-                    weight_array = synapse.get_var_values('g').view(np.float32)
-                    weight_matrix = weight_array.reshape(pre_pop_size, post_pop_size)
-                    synapse_name = f"{pre_pop.name}_to_{post_pop.name}"
-                    self.synapse_matrices[synapse_name] = weight_matrix
-                except ReferenceError as e:
-                    print(f"Failed to pull variable for {synapse_name}: {str(e)}")
+            if hasattr(synapse, 'get_sparse_indices'):
+                indices = synapse.get_sparse_indices()
+                for idx, (pre_idx, post_idx) in enumerate(indices):
+                    weight_matrix[pre_idx, post_idx] = weight_array[idx]
             else:
-                print(f"Model not loaded or synapse {synapse} not part of model.")
+                print("No method for getting sparse indices")
 
-        return self.synapse_matrices
+            synapse_name = f"{pre.name}_to_{post.name}"
+            self.synapse_matrices[synapse_name] = weight_matrix
 
-    def plot_weight_matrix(self):
+    def display_matrices(self):
         for name, matrix in self.synapse_matrices.items():
             plt.figure(figsize=(10, 8))
-            plt.imshow(matrix, aspect='auto', interpolation='none', origin='lower')
+            plt.imshow(matrix, cmap='viridis', interpolation='none', aspect='auto')
             plt.colorbar()
-            plt.title(f'Weight Matrix for {name}')
-            plt.xlabel('Post-synaptic Neurons')
-            plt.ylabel('Pre-synaptic Neurons')
+            plt.title(f"Weight Matrix for {name}")
+            plt.xlabel("Post-synaptic Neuron ID")
+            plt.ylabel("Pre-synaptic Neuron ID")
             plt.show()
-
-    def simulate_and_plot(self):
-        self.setup_network()
-        self.build_model()
-        self.load_model()
-        spiketimes = self.simulate_and_get_recordings()
-        weights = self.extract_and_save_synapse_weights()
-
-        if 'E_to_E' in weights:
-            self.plot_weight_matrix(weights['E_to_E'], title='E to E Synapse Weights')
-        return spiketimes
 
     def create_recording_devices(self):
         """

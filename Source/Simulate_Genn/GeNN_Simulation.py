@@ -81,7 +81,6 @@ if __name__ == '__main__':
     sequences = EI_Network.generate_input_sequences(2)
     for sequence in sequences:
         print(f"Running simulation for sequence: {sequence}")
-        print(f"Running simulation for sequence: {sequence}")
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
         params['stim_starts'] = stim_starts
@@ -93,13 +92,14 @@ if __name__ == '__main__':
             EI_Network.create_recording_devices,
             EI_Network.connect,
             EI_Network.create_learning_synapses,
-            EI_Network.prepare_global_parameters
+            EI_Network.prepare_global_parameters,
         ])
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
+        EI_Network.make_synapse_matrices()
+        EI_Network.display_matrices()
         spiketimes = EI_Network.simulate_and_get_recordings()
-
         plt.figure()
         plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence}")
