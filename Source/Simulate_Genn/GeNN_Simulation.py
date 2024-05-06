@@ -55,7 +55,8 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
-              'Q': 20, 'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750], 'stim_amp': 1.0
+              'Q': 20, #'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750],
+              'stim_amp': 1.0
               }
     #params['stim_starts'] = [params['warmup'] + i * 100 for i in range(params['Q'])]
     #params['stim_ends'] = [s + 50 for s in params['stim_starts']]
@@ -89,6 +90,7 @@ if __name__ == '__main__':
             lambda: EI_Network.create_stimulation(sequence),
             EI_Network.create_recording_devices,
             EI_Network.connect,
+            EI_Network.create_learning_synapses,
             EI_Network.prepare_global_parameters
         ])
         EI_Network.setup_network()

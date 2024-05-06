@@ -16,8 +16,8 @@ from Helper import ClusterModelBase
 
 
 class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
-    """ 
-    Creates an object with functions to create neuron populations, 
+    """
+    Creates an object with functions to create neuron populations,
     stimulation devices and recording devices for an EI-clustered network.
     Provides also function to initialize PyGeNN, simulate the network and
     to grab the spike data.
@@ -27,7 +27,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         """
         Creates an object with functions to create neuron populations,
         stimulation devices and recording devices for an EI-clustered network.
-        Initializes the object. Creates the attributes Populations, RecordingDevices and 
+        Initializes the object. Creates the attributes Populations, RecordingDevices and
         Currentsources to be filled during network construction.
         Attribute params contains all parameters used to construct network.
 
@@ -44,6 +44,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.NeuronModel = NModel
         self.Timing = {'Sim': [], 'Download': []}
         self.cluster_elements = self.assign_elements_to_clusters()
+        self.synapses = []
+        self.synapse_ref = {}
     def assign_elements_to_clusters(self):
         elements = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                     'U', 'V', 'W', 'X', 'Y', 'Z']
@@ -349,12 +351,15 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.2}
                 #     else:
                 #         syn_dict = {"g": 0.}
-                self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
+                synapse = self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
                                                           asymmetric_stdp, stdp_params, {"g": 0.}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
+                #print(f"Creating STDP synapse between {pre.name} and {post.name}")
+                self.synapses.append(synapse)
+                self.synapse_ref[synapse] = (pre, post)
 
     def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
@@ -373,6 +378,57 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                      "strength": self.params['stim_amp']}, {}
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
+
+    # def extract_and_save_synapse_weights(self):
+    #     self.synapse_matrices = {}
+    #     if not self.model or not hasattr(self, 'synapses'):
+    #         print("Model or synapses not initialized.")
+    #         return
+    #
+    #     for synapse in self.synapses:
+    #         if not hasattr(synapse, 'pull_var_from_device'):
+    #             print(f"Synapse {synapse} does not support pulling variables.")
+    #             continue
+    #
+    #         pre_pop, post_pop = self.synapse_ref[synapse]
+    #         pre_pop_size = pre_pop.size
+    #         post_pop_size = post_pop.size
+    #
+    #         # Access the _loaded property directly if it's the correct one as per the error suggestion
+    #         if self.model._loaded and synapse in self.model.synapse_populations:
+    #             try:
+    #                 synapse.pull_var_from_device('g')
+    #                 weight_array = synapse.get_var_values('g').view(np.float32)
+    #                 weight_matrix = weight_array.reshape(pre_pop_size, post_pop_size)
+    #                 synapse_name = f"{pre_pop.name}_to_{post_pop.name}"
+    #                 self.synapse_matrices[synapse_name] = weight_matrix
+    #             except ReferenceError as e:
+    #                 print(f"Failed to pull variable for {synapse_name}: {str(e)}")
+    #         else:
+    #             print(f"Model not loaded or synapse {synapse} not part of model.")
+    #
+    #     return self.synapse_matrices
+
+    def plot_weight_matrix(self):
+        for name, matrix in self.synapse_matrices.items():
+            plt.figure(figsize=(10, 8))
+            plt.imshow(matrix, aspect='auto', interpolation='none', origin='lower')
+            plt.colorbar()
+            plt.title(f'Weight Matrix for {name}')
+            plt.xlabel('Post-synaptic Neurons')
+            plt.ylabel('Pre-synaptic Neurons')
+            plt.show()
+
+    def simulate_and_plot(self):
+        self.setup_network()
+        self.build_model()
+        self.load_model()
+        spiketimes = self.simulate_and_get_recordings()
+        weights = self.extract_and_save_synapse_weights()
+
+        if 'E_to_E' in weights:
+            self.plot_weight_matrix(weights['E_to_E'], title='E to E Synapse Weights')
+        return spiketimes
 
     def create_recording_devices(self):
         """
