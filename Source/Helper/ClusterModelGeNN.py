@@ -352,9 +352,9 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.2}
                 #     else:
                 #         syn_dict = {"g": 0.}
-                synapse = self.model.add_synapse_population(str(i) + "STDP_EE" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
+                synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.001}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.1}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -387,6 +387,17 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                      "strength": self.params['stim_amp']}, {}
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
+
+    def simulate_and_get_recordings(self):
+        for _ in range(self.duration_timesteps):
+            self.model.step_time()
+
+        for synapse in self.synapses:
+            if 'stdp' in synapse.name.lower():
+                synapse.pull_var_from_device('g')
+
+        spiketimes = self.get_spiketimes_section()
+        return spiketimes
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
         self.connectivity_matrices = {}
