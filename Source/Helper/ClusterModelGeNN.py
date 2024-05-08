@@ -354,11 +354,11 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.}
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.0}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.009}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
-                print(f"Creating STDP synapse between {pre.name} and {post.name}")
+                #print(f"Creating STDP synapse between {pre.name} and {post.name}")
                 self.synapses.append(synapse)
                 self.synapse_ref[synapse] = (pre, post)
                 synapse.weight_recording_enabled = True
@@ -388,18 +388,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
-    def simulate_and_get_recordings(self):
-        for _ in range(self.duration_timesteps):
-            self.model.step_time()
-
-        for synapse in self.synapses:
-            if 'stdp' in synapse.name.lower():
-                synapse.pull_var_from_device('g')
-                weights = synapse.get_var_values('g')
-                print(f"Weights of {synapse.name}: {weights}")
-
-        spiketimes = self.get_spiketimes_section()
-        return spiketimes
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
         self.connectivity_matrices = {}
@@ -423,15 +411,43 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             synapse_name = f"{pre.name}_to_{post.name}"
             self.synapse_matrices[synapse_name] = weight_matrix
 
-    def display_matrices(self):
-        for name, matrix in self.synapse_matrices.items():
-            plt.figure(figsize=(10, 8))
-            plt.imshow(matrix, cmap='viridis', interpolation='none', aspect='auto')
-            plt.colorbar()
-            plt.title(f"Weight Matrix for {name}")
-            plt.xlabel("Post-synaptic Neuron ID")
-            plt.ylabel("Pre-synaptic Neuron ID")
-            plt.show()
+    # def display_matrices(self):
+    #     for name, matrix in self.synapse_matrices.items():
+    #         plt.figure(figsize=(10, 8))
+    #         plt.imshow(matrix, cmap='viridis', interpolation='none', aspect='auto')
+    #         plt.colorbar()
+    #         plt.title(f"Weight Matrix for {name}")
+    #         plt.xlabel("Post-synaptic Neuron ID")
+    #         plt.ylabel("Pre-synaptic Neuron ID")
+    #         plt.show()
+
+    def create_full_network_connectivity_matrix(self):
+        exc_populations = self.Populations[0].get_Populations()
+        total_neurons = sum(pop.size for pop in exc_populations)
+        full_matrix = np.zeros((total_neurons, total_neurons), dtype=np.float32)
+
+        row_start = 0
+        for i, source_pop in enumerate(exc_populations):
+            col_start = 0
+            for j, target_pop in enumerate(exc_populations):
+                matrix_name = f"{source_pop.name}_to_{target_pop.name}"
+                matrix = self.synapse_matrices.get(matrix_name,
+                                                   np.zeros((source_pop.size, target_pop.size), dtype=np.float32))
+                full_matrix[row_start:row_start + source_pop.size, col_start:col_start + target_pop.size] = matrix
+                col_start += target_pop.size
+            row_start += source_pop.size
+
+        return full_matrix
+
+    def display_full_network_connectivity_matrix(self):
+        full_matrix = self.create_full_network_connectivity_matrix()
+        plt.figure(figsize=(10, 8))
+        plt.imshow(full_matrix, cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Full Network Synaptic Weight Matrix')
+        plt.xlabel('Neuron ID (Post-synaptic)')
+        plt.ylabel('Neuron ID (Pre-synaptic)')
+        plt.show()
 
     def create_recording_devices(self):
         """

@@ -75,10 +75,12 @@ if __name__ == '__main__':
         params['matrixType'] = "PROCEDURAL_GLOBALG"
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
-
-    EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-    sequences = EI_Network.generate_input_sequences(2)
-    for sequence in sequences:
+    # EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+    # sequences = EI_Network.generate_input_sequences(2)
+    # for sequence in sequences:
+    for ii in range(2):
+        EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+        sequence = EI_Network.generate_input_sequences(1)[0]
         print(f"Running simulation for sequence: {sequence}")
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
@@ -96,9 +98,11 @@ if __name__ == '__main__':
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
-        EI_Network.make_synapse_matrices()
-        EI_Network.display_matrices()
         spiketimes = EI_Network.simulate_and_get_recordings()
+        EI_Network.make_synapse_matrices()
+        #EI_Network.display_matrices()
+        EI_Network.create_full_network_connectivity_matrix()
+        EI_Network.display_full_network_connectivity_matrix()
         plt.figure()
         plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence}")
