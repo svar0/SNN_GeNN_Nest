@@ -354,7 +354,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.}
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.1}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.0}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -395,6 +395,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         for synapse in self.synapses:
             if 'stdp' in synapse.name.lower():
                 synapse.pull_var_from_device('g')
+                weights = synapse.get_var_values('g')
+                print(f"Weights of {synapse.name}: {weights}")
 
         spiketimes = self.get_spiketimes_section()
         return spiketimes
@@ -406,8 +408,18 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             pre, post = self.synapse_ref[synapse]
             pre_pop_size = pre.size
             post_pop_size = post.size
+
             synapse.pull_var_from_device('g')
+            synapse.pull_connectivity_from_device()
+
+            gs = synapse.get_var_values('g')
+            pre_inds = synapse.get_sparse_pre_inds()
+            post_inds = synapse.get_sparse_post_inds()
             weight_matrix = np.zeros((pre_pop_size, post_pop_size), dtype=np.float32)
+
+            for idx in range(len(gs)):
+                weight_matrix[pre_inds[idx], post_inds[idx]] = gs[idx]
+
             synapse_name = f"{pre.name}_to_{post.name}"
             self.synapse_matrices[synapse_name] = weight_matrix
 

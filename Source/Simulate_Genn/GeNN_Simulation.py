@@ -2,7 +2,6 @@ import numpy as np
 import pickle
 import sys
 import time
-
 sys.path.append("..")
 from Defaults import defaultSimulate as default
 from Helper import ClusterModelGeNN
