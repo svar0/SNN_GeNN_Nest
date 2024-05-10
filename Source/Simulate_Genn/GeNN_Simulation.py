@@ -103,6 +103,7 @@ if __name__ == '__main__':
         #EI_Network.display_matrices()
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
+        EI_Network.display_full_normalized_network_connectivity_matrix()
         plt.figure()
         plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence}")

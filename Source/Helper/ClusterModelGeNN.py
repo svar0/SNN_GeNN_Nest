@@ -448,6 +448,23 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         plt.xlabel('Neuron ID (Post-synaptic)')
         plt.ylabel('Neuron ID (Pre-synaptic)')
         plt.show()
+    def normalize_matrix(self, matrix):
+        row_sums = matrix.sum(axis=1, keepdims=True)
+        normalized_matrix = matrix / row_sums
+        return normalized_matrix
+    def display_full_normalized_network_connectivity_matrix(self):
+        full_matrix = self.create_full_network_connectivity_matrix()
+        normalized_matrix = self.normalize_matrix(full_matrix)
+        plt.figure(figsize=(10, 8))
+        plt.imshow(normalized_matrix, cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Full Network Synaptic Weight Matrix (Normalized)')
+        plt.xlabel('Neuron ID (Post-synaptic)')
+        plt.ylabel('Neuron ID (Pre-synaptic)')
+        plt.show()
+
+
+
 
     def create_recording_devices(self):
         """
