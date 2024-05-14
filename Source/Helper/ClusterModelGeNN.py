@@ -5,6 +5,8 @@ import pickle
 import sys
 import random
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import networkx as nx
 
 sys.path.append("..")
 import signal
@@ -354,7 +356,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.}
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.009}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.09}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -431,12 +433,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             col_start = 0
             for j, target_pop in enumerate(exc_populations):
                 matrix_name = f"{source_pop.name}_to_{target_pop.name}"
-                matrix = self.synapse_matrices.get(matrix_name,
-                                                   np.zeros((source_pop.size, target_pop.size), dtype=np.float32))
+                matrix = self.synapse_matrices.get(matrix_name, np.zeros((source_pop.size, target_pop.size), dtype=np.float32))
+                if np.any(matrix < 0):
+                    print(f"Negative values from {source_pop.name} to {target_pop.name}")
                 full_matrix[row_start:row_start + source_pop.size, col_start:col_start + target_pop.size] = matrix
                 col_start += target_pop.size
             row_start += source_pop.size
-
         return full_matrix
 
     def display_full_network_connectivity_matrix(self):
@@ -448,10 +450,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         plt.xlabel('Neuron ID (Post-synaptic)')
         plt.ylabel('Neuron ID (Pre-synaptic)')
         plt.show()
+
     def normalize_matrix(self, matrix):
         row_sums = matrix.sum(axis=1, keepdims=True)
         normalized_matrix = matrix / row_sums
         return normalized_matrix
+
     def display_full_normalized_network_connectivity_matrix(self):
         full_matrix = self.create_full_network_connectivity_matrix()
         normalized_matrix = self.normalize_matrix(full_matrix)
@@ -463,8 +467,98 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         plt.ylabel('Neuron ID (Pre-synaptic)')
         plt.show()
 
+    # def create_transition_probability_matrix(self):
+    #     full_matrix = self.create_full_network_connectivity_matrix()
+    #     #normalized_matrix = self.normalize_matrix(full_matrix)
+    #     transition_matrix = self.normalize_matrix(full_matrix)
+    #     #return normalized_matrix
+    #     return transition_matrix
+
+    def find_max_in_subpopulations_and_clusters(self):
+        full_matrix = self.create_full_network_connectivity_matrix()
+        exc_populations = self.Populations[0].get_Populations()
+
+        row_start = 0
+        max_values = []
+        max_indices = []
+
+        for i, source_pop in enumerate(exc_populations):
+            pop_max_values = []
+            pop_max_indices = []
+            row_end = row_start + source_pop.size
+            col_start = 0
+
+            for j, target_pop in enumerate(exc_populations):
+                col_end = col_start + target_pop.size
+
+                for row in range(row_start, row_end):
+                    row_slice = full_matrix[row, col_start:col_end]
+                    max_index = np.argmax(row_slice)
+                    row_max = row_slice[max_index]
+                    pop_max_values.append(row_max)
+                    pop_max_indices.append(j)
+
+                col_start += target_pop.size
+
+            max_values.append(pop_max_values)
+            max_indices.append(pop_max_indices)
+            row_start += source_pop.size
+
+        return max_values, max_indices
 
 
+    def create_markov_chain(self):
+        max_values, max_indices = self.find_max_in_subpopulations_and_clusters()
+        exc_populations = self.Populations[0].get_Populations()
+        num_clusters = len(exc_populations)
+
+
+        transition_matrix = np.zeros((num_clusters, num_clusters))
+
+        for i in range(num_clusters):
+            for max_val, target_idx in zip(max_values[i], max_indices[i]):
+                transition_matrix[i, target_idx] = max_val
+
+        return transition_matrix
+
+    def plot_markov_chain(self, transition_matrix):
+        fig, ax = plt.subplots(figsize=(10, 8))
+        G = nx.DiGraph()
+        exc_populations = self.Populations[0].get_Populations()
+
+        epsilon = 1e-5
+        log_prob_matrix = np.log(transition_matrix + epsilon)
+        min_log_prob = np.min(log_prob_matrix[log_prob_matrix > -np.inf])
+        max_log_prob = np.max(log_prob_matrix)
+
+        for i, pop in enumerate(exc_populations):
+            G.add_node(i, label=pop.name)
+
+        edge_colors = []
+        edge_widths = []
+        for i in range(len(transition_matrix)):
+            for j in range(len(transition_matrix[i])):
+                if transition_matrix[i][j] > 0:
+                    G.add_edge(i, j, weight=transition_matrix[i][j])
+                    normalized_weight = (np.log(transition_matrix[i][j] + epsilon) - min_log_prob) / (
+                                max_log_prob - min_log_prob)
+                    color = plt.cm.viridis(normalized_weight)
+                    edge_colors.append(color)
+                    edge_width = 2 if transition_matrix[i][j] == np.max(transition_matrix[i]) else 1
+                    edge_widths.append(edge_width)
+
+        pos = nx.circular_layout(G)
+        nx.draw(G, pos, node_color='lightblue', with_labels=True, node_size=5000, font_size=15, ax=ax)
+        edges = nx.draw_networkx_edges(G, pos, arrowstyle='-|>', arrowsize=20, edge_color=edge_colors,
+                                       width=edge_widths, ax=ax)
+
+        norm = mcolors.Normalize(vmin=min_log_prob, vmax=max_log_prob)
+        sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
+        sm.set_array([])
+        plt.colorbar(sm, ax=ax, label='Log-Scaled Probability')
+
+        ax.set_title("Markov Chain Transition Diagram")
+        plt.show()
 
     def create_recording_devices(self):
         """

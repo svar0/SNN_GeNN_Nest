@@ -75,10 +75,7 @@ if __name__ == '__main__':
         params['matrixType'] = "PROCEDURAL_GLOBALG"
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
-    # EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-    # sequences = EI_Network.generate_input_sequences(2)
-    # for sequence in sequences:
-    for ii in range(2):
+    for ii in range(1):
         EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
         sequence = EI_Network.generate_input_sequences(1)[0]
         print(f"Running simulation for sequence: {sequence}")
@@ -100,10 +97,13 @@ if __name__ == '__main__':
         EI_Network.load_model()
         spiketimes = EI_Network.simulate_and_get_recordings()
         EI_Network.make_synapse_matrices()
-        #EI_Network.display_matrices()
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
         EI_Network.display_full_normalized_network_connectivity_matrix()
+        #max_values = EI_Network.find_max_in_subpopulations()
+        #print("Max values in each subpopulation block:", max_values)
+        transition_matrix = EI_Network.create_markov_chain()
+        EI_Network.plot_markov_chain(transition_matrix)
         plt.figure()
         plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence}")
