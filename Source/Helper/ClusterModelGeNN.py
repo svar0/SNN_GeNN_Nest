@@ -7,6 +7,8 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import networkx as nx
+from pydtmc import MarkovChain
+
 
 sys.path.append("..")
 import signal
@@ -49,28 +51,127 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.cluster_elements = self.assign_elements_to_clusters()
         self.synapses = []
         self.synapse_ref = {}
+
+    # def assign_elements_to_clusters(self):
+    #     elements = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+    #                 'U', 'V', 'W', 'X', 'Y', 'Z']
+    #     num_clusters = self.params['Q']
+    #
+    #     if num_clusters > len(elements):
+    #         raise ValueError("Not enough elements to assign to clusters.")
+    #
+    #     return {i: elements[i] for i in range(num_clusters)}
+    #
+    # def generate_input_sequences(self, num_sequences):
+    #     """
+    #     Generates arbitrary sequences of elements from the clusters.
+    #     """
+    #     clusters = self.assign_elements_to_clusters()
+    #     elements = list(clusters.values())
+    #     num_clusters = len(elements)
+    #     sequences = []
+    #
+    #     for _ in range(num_sequences):
+    #         sequence = random.choices(elements, k=num_clusters)
+    #         sequences.append(''.join(sequence))
+    #     return sequences
+    # def create_markov_chain_transition_matrix(self, num_clusters):
+    #     # Generate a transition matrix where each row sums to 1 using Dirichlet distribution
+    #     transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
+    #     # Optionally check if the generated Markov Chain is ergodic
+    #     mc = MarkovChain(transition_matrix)
+    #     print("Is the Markov Chain ergodic?", mc.is_ergodic)  # Corrected to access the property, not call it
+    #     return transition_matrix
+    #
+    # def generate_markov_chain_sequences(self, num_sequences, num_clusters):
+    #     # Generate transition matrix using the modified create_markov_chain_transition_matrix function
+    #     transition_matrix = self.create_markov_chain_transition_matrix(num_clusters)
+    #     # Initialize a MarkovChain instance with the transition matrix
+    #     mc = MarkovChain(transition_matrix)
+    #     sequences = []
+    #     # Get cluster element mapping once
+    #     cluster_elements = self.assign_elements_to_clusters()
+    #
+    #     for _ in range(num_sequences):
+    #         # Ensure there's at least one transition (minimum two steps)
+    #         num_steps = max(num_clusters, 2)
+    #         # Simulate the Markov Chain starting from state 0
+    #         sequence = mc.simulate(num_steps, initial_state=0)
+    #
+    #         # Convert state indices to cluster labels, handling missing keys
+    #         sequence_labels = []
+    #         for state in sequence:
+    #             # Handle keys properly by converting state to string if necessary
+    #             state_key = str(state)  # Convert to string to match keys format in cluster_elements
+    #             label = cluster_elements.get(state_key, f"Unknown_{state_key}")
+    #             sequence_labels.append(label)
+    #
+    #         sequences.append(''.join(sequence_labels))
+    #
+    #     return sequences
     def assign_elements_to_clusters(self):
-        elements = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                    'U', 'V', 'W', 'X', 'Y', 'Z']
+        elements = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         num_clusters = self.params['Q']
 
         if num_clusters > len(elements):
-            raise ValueError("Not enough elements")
+            raise ValueError("Not enough elements to assign to clusters.")
+
         return {i: elements[i] for i in range(num_clusters)}
 
-    def generate_input_sequences(self, num_sequences):
-        """
-        Generates arbitrary sequences of elements from the clusters.
-        """
-        clusters = self.assign_elements_to_clusters()
-        elements = list(clusters.values())
-        num_clusters = len(elements)
+    def create_markov_chain_transition_matrix(self, num_clusters):
+        transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
+        mc = MarkovChain(transition_matrix)
+        print("Is the Markov Chain ergodic?", mc.is_ergodic)
+        absorbing_states = []
+        for i in range(num_clusters):
+            if transition_matrix[i, i] == 1.0:
+                absorbing_states.append(i)
+
+        if absorbing_states:
+            print("Absorbing states detected:", absorbing_states)
+        else:
+            print("No absorbing states detected.")
+
+        return transition_matrix
+
+    def generate_markov_chain_sequences(self, num_sequences, num_clusters):
+        transition_matrix = self.create_markov_chain_transition_matrix(num_clusters)
+        mc = MarkovChain(transition_matrix)
         sequences = []
+        cluster_elements = self.assign_elements_to_clusters()
 
         for _ in range(num_sequences):
-            sequence = random.choices(elements, k=num_clusters)
-            sequences.append(''.join(sequence))
+            num_steps = max(num_clusters, 2)
+            sequence = mc.simulate(num_steps, initial_state=0)
+            sequence_labels = [cluster_elements[int(state)] for state in sequence]
+            sequences.append(''.join(sequence_labels))
+
         return sequences
+
+    def create_stimulation(self, sequence):
+        cluster_stimulus = GeNN_Models.define_ClusterStim()
+
+        stim_starts = []
+        stim_ends = []
+        current_start = self.params['warmup']
+
+        for idx, _ in enumerate(sequence):
+            stim_starts.append(current_start)
+            stim_ends.append(current_start + self.params['stim_duration'])
+            current_start += self.params['stim_duration'] + self.params['inter_stim_delay']
+
+        for ii, element in enumerate(sequence):
+            cluster_index = ord(element) - ord('A')
+            if cluster_index < len(self.Populations[0].get_Populations()):
+                self.model.add_current_source(
+                    f"Stim_{element}_{ii}",
+                    cluster_stimulus,
+                    self.Populations[0].get_Populations()[cluster_index],
+                    {"t_onset": stim_starts[ii],
+                     "t_offset": stim_ends[ii],
+                     "strength": self.params['stim_amp']}, {}
+                )
+                print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
     def clean_network(self):
         """
@@ -320,7 +421,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def create_learning_synapses(self):
 
-
         delaySteps = int((self.params['delay'] + 0.5 * self.model.dT) // self.model.dT)
         psc_E = {"tau": self.params['tau_syn_ex']}
 
@@ -356,7 +456,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 #         syn_dict = {"g": 0.}
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.09}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.009}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -364,31 +464,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 self.synapses.append(synapse)
                 self.synapse_ref[synapse] = (pre, post)
                 synapse.weight_recording_enabled = True
-
-    def create_stimulation(self, sequence):
-        cluster_stimulus = GeNN_Models.define_ClusterStim()
-
-        stim_starts = []
-        stim_ends = []
-        current_start = self.params['warmup']
-
-        for idx, _ in enumerate(sequence):
-            stim_starts.append(current_start)
-            stim_ends.append(current_start + self.params['stim_duration'])
-            current_start += self.params['stim_duration'] + self.params['inter_stim_delay']
-
-        for ii, element in enumerate(sequence):
-            cluster_index = ord(element) - ord('A')
-            if cluster_index < len(self.Populations[0].get_Populations()):
-                self.model.add_current_source(
-                    f"Stim_{element}_{ii}",
-                    cluster_stimulus,
-                    self.Populations[0].get_Populations()[cluster_index],
-                    {"t_onset": stim_starts[ii],
-                     "t_offset": stim_ends[ii],
-                     "strength": self.params['stim_amp']}, {}
-                )
-                print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
@@ -474,7 +549,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
     #     #return normalized_matrix
     #     return transition_matrix
 
-    def find_max_in_subpopulations_and_clusters(self):
+    def find_max(self):
         full_matrix = self.create_full_network_connectivity_matrix()
         exc_populations = self.Populations[0].get_Populations()
 
@@ -508,7 +583,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
 
     def create_markov_chain(self):
-        max_values, max_indices = self.find_max_in_subpopulations_and_clusters()
+        max_values, max_indices = self.find_max()
         exc_populations = self.Populations[0].get_Populations()
         num_clusters = len(exc_populations)
 
@@ -540,8 +615,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             for j in range(len(transition_matrix[i])):
                 if transition_matrix[i][j] > 0:
                     G.add_edge(i, j, weight=transition_matrix[i][j])
-                    normalized_weight = (np.log(transition_matrix[i][j] + epsilon) - min_log_prob) / (
-                                max_log_prob - min_log_prob)
+                    normalized_weight = (np.log(transition_matrix[i][j] + epsilon) - min_log_prob) / (max_log_prob - min_log_prob)
                     color = plt.cm.viridis(normalized_weight)
                     edge_colors.append(color)
                     edge_width = 2 if transition_matrix[i][j] == np.max(transition_matrix[i]) else 1
@@ -549,13 +623,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         pos = nx.circular_layout(G)
         nx.draw(G, pos, node_color='lightblue', with_labels=True, node_size=5000, font_size=15, ax=ax)
-        edges = nx.draw_networkx_edges(G, pos, arrowstyle='-|>', arrowsize=20, edge_color=edge_colors,
-                                       width=edge_widths, ax=ax)
+        edges = nx.draw_networkx_edges(G, pos, arrowstyle='-|>', arrowsize=20, edge_color=edge_colors, width=edge_widths, ax=ax)
 
         norm = mcolors.Normalize(vmin=min_log_prob, vmax=max_log_prob)
         sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
         sm.set_array([])
-        plt.colorbar(sm, ax=ax, label='Log-Scaled Probability')
+        plt.colorbar(sm, ax=ax)
 
         ax.set_title("Markov Chain Transition Diagram")
         plt.show()

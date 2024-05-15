@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     MatrixType = 0
     FactorSize = 10
-    FactorTime = 5
+    FactorTime = 4
     Savepath = "Data.pkl"
 
     if len(sys.argv) == 2:
@@ -55,10 +55,8 @@ if __name__ == '__main__':
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
               'Q': 10, #'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750],
-              'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': 100
+              'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
               }
-    # params['stim_starts'] = [params['warmup'] + i * 200 for i in range(params['Q'])]
-    # params['stim_ends'] = [s + 100 for s in params['stim_starts']]
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
     jep = 4.0  # clustering strength
@@ -77,8 +75,11 @@ if __name__ == '__main__':
         params['matrixType'] = "SPARSE_GLOBALG"
     for ii in range(1):
         EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-        sequence = EI_Network.generate_input_sequences(1)[0]
+        num_clusters = params['Q']
+        sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
+        #sequence = EI_Network.generate_input_sequences(1)[0]
         print(f"Running simulation for sequence: {sequence}")
+
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
         params['stim_starts'] = stim_starts
@@ -100,8 +101,6 @@ if __name__ == '__main__':
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
         EI_Network.display_full_normalized_network_connectivity_matrix()
-        #max_values = EI_Network.find_max_in_subpopulations()
-        #print("Max values in each subpopulation block:", max_values)
         transition_matrix = EI_Network.create_markov_chain()
         EI_Network.plot_markov_chain(transition_matrix)
         plt.figure()
