@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import sys
 import time
+
 sys.path.append("..")
 from Defaults import defaultSimulate as default
 from Helper import ClusterModelGeNN
@@ -42,8 +43,7 @@ if __name__ == '__main__':
 
     print("FactorSize: " + str(FactorSize) + " FactorTime: " + str(FactorTime))
 
-    # Added to adjust number of cores used to the running machine
-    CPUcount=psutil.cpu_count(logical = False)
+    CPUcount = psutil.cpu_count(logical=False)
     if CPUcount > 8:
         CPUcount -= 2
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
-              'Q': 10, #'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750],
+              'Q': 10,  # 'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750],
               'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
               }
 
@@ -73,14 +73,20 @@ if __name__ == '__main__':
         params['matrixType'] = "PROCEDURAL_GLOBALG"
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
+
+    record_start = params['warmup']
+    record_end = record_start + 2500
+    record_end_start = params['simtime'] - 1000
+    record_end_end = params['simtime']
+
     for ii in range(1):
         EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
         num_clusters = params['Q']
         sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
-        #sequence = EI_Network.generate_input_sequences(1)[0]
-        print(f"Running simulation for sequence: {sequence}")
 
-        stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
+        print(f"Running simulation for sequence: {sequence}")
+        stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in
+                       range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
         params['stim_starts'] = stim_starts
         params['stim_ends'] = stim_ends
@@ -96,18 +102,33 @@ if __name__ == '__main__':
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
-        spiketimes = EI_Network.simulate_and_get_recordings()
+        num_epochs = 10
+        # for epoch in range(num_epochs):
+        #     print(f"Epoch {epoch + 1}/{num_epochs}")
+        #     EI_Network.simulate_and_get_recordings()
+        # spiketimes = EI_Network.simulate_and_get_recordings()
+        first_epoch_spikes = None
+        last_epoch_spikes = None
+
+        for epoch in range(num_epochs):
+            print(f"Epoch {epoch + 1}/{num_epochs}")
+            spikes = EI_Network.simulate_and_get_recordings()
+            if epoch == 0:
+                first_epoch_spikes = spikes
+            if epoch == num_epochs - 1:
+                last_epoch_spikes = spikes
+
         EI_Network.make_synapse_matrices()
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
         EI_Network.display_full_normalized_network_connectivity_matrix()
         transition_matrix = EI_Network.create_markov_chain()
         EI_Network.plot_markov_chain(transition_matrix)
+
         plt.figure()
-        plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.', ms=0.5)
-        plt.title(f"Spiketimes for Sequence: {sequence}")
+        plt.plot(first_epoch_spikes[0][0, :], first_epoch_spikes[0][1, :], '.', ms=0.5)
+        plt.title(f"Spiketimes for Sequence: {sequence} (First Epoch)")
         plt.xlabel("Time (ms)")
-        #plt.ylabel("Neuron Index")
         neurons_per_cluster = params['N_E'] // params['Q']
         cluster_labels = {i * neurons_per_cluster: f'Cluster {i}' for i in range(params['Q'])}
         ax = plt.gca()
@@ -118,7 +139,25 @@ if __name__ == '__main__':
                     horizontalalignment='right', verticalalignment='center')
 
         for start, end, cluster in zip(params['stim_starts'], params['stim_ends'], sequence):
-                plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
-                plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
-                plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
+            plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
+            plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
+            plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
         plt.show()
+
+        plt.figure()
+        plt.plot(last_epoch_spikes[0][0, :], last_epoch_spikes[0][1, :], '.', ms=0.5)
+        plt.title(f"Spiketimes for Sequence: {sequence} (Last Epoch)")
+        plt.xlabel("Time (ms)")
+        for i in range(params['Q']):
+            y = i * neurons_per_cluster
+            plt.axhline(y=y, color='gray', linestyle='--')
+            ax.text(-0.10, y + neurons_per_cluster / 2, f'{i}', transform=ax.get_yaxis_transform(),
+                    horizontalalignment='right', verticalalignment='center')
+
+        for start, end, cluster in zip(params['stim_starts'], params['stim_ends'], sequence):
+            plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
+            plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
+            plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
+        plt.show()
+
+

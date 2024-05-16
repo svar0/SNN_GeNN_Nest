@@ -51,6 +51,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.cluster_elements = self.assign_elements_to_clusters()
         self.synapses = []
         self.synapse_ref = {}
+        self.transition_matrix = None
 
     def clean_network(self):
         """
@@ -307,7 +308,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         stdp_params = {"tau": 30.0,
                        "rho": 0.1,
                        "eta": 0.0002,
-                       "wMin": -10.0,
+                       "wMin": 0.0,
                        "wMax": 10.0}
 
         # define the synapses and connect the populations
@@ -354,25 +355,13 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         return {i: elements[i] for i in range(num_clusters)}
 
     def create_markov_chain_transition_matrix(self, num_clusters):
-        transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
-        mc = MarkovChain(transition_matrix)
-        print("Is the Markov Chain ergodic?", mc.is_ergodic)
-
-        absorbing_states = []
-        for i in range(num_clusters):
-            if transition_matrix[i, i] == 1.0:
-                absorbing_states.append(i)
-
-        if absorbing_states:
-            print("Absorbing states detected:", absorbing_states)
-        else:
-            print("No absorbing states detected.")
-
-        return transition_matrix
+        self.transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
+        mc = MarkovChain(self.transition_matrix)
+        return self
 
     def generate_markov_chain_sequences(self, num_sequences, num_clusters):
-        transition_matrix = self.create_markov_chain_transition_matrix(num_clusters)
-        mc = MarkovChain(transition_matrix)
+        self.create_markov_chain_transition_matrix(num_clusters)
+        mc = MarkovChain(self.transition_matrix)
         sequences = []
         cluster_elements = self.assign_elements_to_clusters()
 
@@ -383,11 +372,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             sequence_labels = []
 
             for state in sequence:
-                state = int(state)
-                if 0 <= state < num_clusters:
-                    sequence_labels.append(cluster_elements[state])
-                else:
-                    raise KeyError(f"State {state} is out of range for cluster elements")
+                state = int(state) % num_clusters
+                sequence_labels.append(cluster_elements[state])
 
             sequences.append(''.join(sequence_labels))
 
@@ -418,6 +404,13 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                      "strength": self.params['stim_amp']}, {}
                 )
                 print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
+
+    def train_network(self, sequence, num_epochs):
+        for epoch in range(num_epochs):
+            print(f"Epoch {epoch + 1}/{num_epochs}")
+            self.create_stimulation(sequence)
+            self.simulate_and_get_recordings()
+        print("Training completed.")
 
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
