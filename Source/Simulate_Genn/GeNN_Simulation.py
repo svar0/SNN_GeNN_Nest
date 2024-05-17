@@ -86,7 +86,7 @@ if __name__ == '__main__':
         print(f"Initial State: {EI_Network.state}")
         print(f"Transition Matrix:\n{EI_Network.transition_matrix}")
 
-        steps = 3
+        steps = 2
         states = EI_Network.simulate_MC(steps)
         print(f"States after {steps} steps: {states}")
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
-        num_epochs = 10
+        num_epochs = 3
 
         # spiketimes = EI_Network.simulate_and_get_recordings()
         first_epoch_spikes = None
@@ -128,7 +128,7 @@ if __name__ == '__main__':
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
         EI_Network.display_full_normalized_network_connectivity_matrix()
-        transition_matrix = EI_Network.create_markov_chain()
+        #transition_matrix = EI_Network.create_markov_chain()
         EI_Network.plot_markov_chain(transition_matrix)
 
         plt.figure()
