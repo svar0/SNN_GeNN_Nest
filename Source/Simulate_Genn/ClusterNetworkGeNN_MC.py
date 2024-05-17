@@ -16,43 +16,45 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
         self.labels = None
         self.transition_matrix = None
         self.state = None
-    """
-            Creates a Markov Chain and returns  the labels for each cluster, the transition matrix, and the state.
+        self.visited_states = set()
+        self.cluster_elements = self.assign_elements_to_clusters()
 
-            Steps for the Markov Chain to the next state based on the current state.
-            The new state is not the same as the current state and returns the new state
-            
-            Simulates the Markov Chain for a given number of steps and returns the list of states.
-    """
     def create_MC(self, transition_matrix, initial_state):
-
         num_clusters = transition_matrix.shape[0]
         self.labels = {i: chr(65 + i) for i in range(num_clusters)}
         self.transition_matrix = transition_matrix
         self.state = initial_state
+        self.visited_states = {initial_state}
 
     def step_MC(self):
-
         if self.state is None or self.transition_matrix is None:
             raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
 
         probabilities = self.transition_matrix[self.state].copy()
-        probabilities[self.state] = 0
-        probabilities = probabilities / probabilities.sum()
+        for visited_state in self.visited_states:
+            probabilities[visited_state] = 0
 
+        if probabilities.sum() == 0:
+            raise ValueError("All states have been visited. No more transitions possible.")
+
+        probabilities = probabilities / probabilities.sum()
         new_state = np.random.choice(len(probabilities), p=probabilities)
         self.state = new_state
+        self.visited_states.add(new_state)
         return self.state
 
     def simulate_MC(self, steps):
-
         if self.state is None or self.transition_matrix is None:
             raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
 
         states = [self.state]
-        for _ in range(steps):
-            states.append(self.step_MC())
+        try:
+            for _ in range(steps):
+                states.append(self.step_MC())
+        except ValueError as e:
+            print(e)
         return states
+
     def assign_elements_to_clusters(self):
         elements = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         num_clusters = self.params['Q']
@@ -61,32 +63,7 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
             raise ValueError("Not enough elements to assign to clusters.")
 
         return {i: elements[i] for i in range(num_clusters)}
-    def create_markov_chain_transition_matrix(self, num_clusters):
-        self.transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
-        mc = MarkovChain(self.transition_matrix)
-        #return self
-        #print(mc)
-        return self.transition_matrix
 
-    def generate_markov_chain_sequences(self, num_sequences, num_clusters):
-        self.create_markov_chain_transition_matrix(num_clusters)
-        mc = MarkovChain(self.transition_matrix)
-        sequences = []
-        cluster_elements = self.assign_elements_to_clusters()
-
-        for _ in range(num_sequences):
-            num_steps = max(num_clusters, 2)
-            initial_state = np.random.randint(0, num_clusters)
-            sequence = mc.simulate(num_steps, initial_state=initial_state)
-            sequence_labels = []
-
-            for state in sequence:
-                state = int(state) % num_clusters
-                sequence_labels.append(cluster_elements[state])
-
-            sequences.append(''.join(sequence_labels))
-
-        return sequences
     def find_max(self):
         full_matrix = self.create_full_network_connectivity_matrix()
         exc_populations = self.Populations[0].get_Populations()
@@ -119,12 +96,10 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
 
         return max_values, max_indices
 
-
     def create_markov_chain(self):
         max_values, max_indices = self.find_max()
         exc_populations = self.Populations[0].get_Populations()
         num_clusters = len(exc_populations)
-
 
         transition_matrix = np.zeros((num_clusters, num_clusters))
 
@@ -170,7 +145,6 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
 
         ax.set_title("Markov Chain Transition Diagram")
         plt.show()
-
 
 if __name__ == "__main__":
     sys.path.append("..")

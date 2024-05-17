@@ -80,7 +80,17 @@ if __name__ == '__main__':
         # sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
         EI_Network = ClusterNetworkGeNN_MC(default, params, batch_size=1, NModel="LIF")
         num_clusters = 3
-        sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
+        transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
+        initial_state = 0
+        EI_Network.create_MC(transition_matrix, initial_state)
+        print(f"Initial State: {EI_Network.state}")
+        print(f"Transition Matrix:\n{EI_Network.transition_matrix}")
+
+        steps = 3
+        states = EI_Network.simulate_MC(steps)
+        print(f"States after {steps} steps: {states}")
+
+        sequence = states
 
         print(f"Running simulation for sequence: {sequence}")
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in

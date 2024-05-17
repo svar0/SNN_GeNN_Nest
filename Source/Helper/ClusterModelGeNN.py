@@ -48,10 +48,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.runs = 0
         self.NeuronModel = NModel
         self.Timing = {'Sim': [], 'Download': []}
-        self.cluster_elements = self.assign_elements_to_clusters()
         self.synapses = []
         self.synapse_ref = {}
-        self.transition_matrix = None
 
     def clean_network(self):
         """
@@ -357,18 +355,19 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             stim_ends.append(current_start + self.params['stim_duration'])
             current_start += self.params['stim_duration'] + self.params['inter_stim_delay']
 
-        for ii, element in enumerate(sequence):
-            cluster_index = ord(element) - ord('A')
+        #for ii, element in enumerate(sequence):
+        for ii, cluster_index in enumerate(sequence):
+            #cluster_index = ord(element) - ord('A')
             if cluster_index < len(self.Populations[0].get_Populations()):
                 self.model.add_current_source(
-                    f"Stim_{element}_{ii}",
+                    f"Stim_{cluster_index}_{ii}",
                     cluster_stimulus,
                     self.Populations[0].get_Populations()[cluster_index],
                     {"t_onset": stim_starts[ii],
                      "t_offset": stim_ends[ii],
                      "strength": self.params['stim_amp']}, {}
                 )
-                print(f"Stimulating cluster {cluster_index} ({element}) from {stim_starts[ii]} to {stim_ends[ii]}")
+                print(f"Stimulating cluster {cluster_index} ({cluster_index}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
     def train_network(self, sequence, num_epochs):
         for epoch in range(num_epochs):
