@@ -345,41 +345,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 self.synapse_ref[synapse] = (pre, post)
                 synapse.weight_recording_enabled = True
 
-    def assign_elements_to_clusters(self):
-        elements = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        num_clusters = self.params['Q']
-
-        if num_clusters > len(elements):
-            raise ValueError("Not enough elements to assign to clusters.")
-
-        return {i: elements[i] for i in range(num_clusters)}
-
-    def create_markov_chain_transition_matrix(self, num_clusters):
-        self.transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
-        mc = MarkovChain(self.transition_matrix)
-        return self
-
-    def generate_markov_chain_sequences(self, num_sequences, num_clusters):
-        self.create_markov_chain_transition_matrix(num_clusters)
-        mc = MarkovChain(self.transition_matrix)
-        sequences = []
-        cluster_elements = self.assign_elements_to_clusters()
-
-        for _ in range(num_sequences):
-            num_steps = max(num_clusters, 2)
-            initial_state = np.random.randint(0, num_clusters)
-            sequence = mc.simulate(num_steps, initial_state=initial_state)
-            sequence_labels = []
-
-            for state in sequence:
-                state = int(state) % num_clusters
-                sequence_labels.append(cluster_elements[state])
-
-            sequences.append(''.join(sequence_labels))
-
-        return sequences
-
-
     def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
 
@@ -479,89 +444,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         plt.ylabel('Neuron ID (Pre-synaptic)')
         plt.show()
 
-    def find_max(self):
-        full_matrix = self.create_full_network_connectivity_matrix()
-        exc_populations = self.Populations[0].get_Populations()
-
-        row_start = 0
-        max_values = []
-        max_indices = []
-
-        for i, source_pop in enumerate(exc_populations):
-            pop_max_values = []
-            pop_max_indices = []
-            row_end = row_start + source_pop.size
-            col_start = 0
-
-            for j, target_pop in enumerate(exc_populations):
-                col_end = col_start + target_pop.size
-
-                for row in range(row_start, row_end):
-                    row_slice = full_matrix[row, col_start:col_end]
-                    max_index = np.argmax(row_slice)
-                    row_max = row_slice[max_index]
-                    pop_max_values.append(row_max)
-                    pop_max_indices.append(j)
-
-                col_start += target_pop.size
-
-            max_values.append(pop_max_values)
-            max_indices.append(pop_max_indices)
-            row_start += source_pop.size
-
-        return max_values, max_indices
-
-
-    def create_markov_chain(self):
-        max_values, max_indices = self.find_max()
-        exc_populations = self.Populations[0].get_Populations()
-        num_clusters = len(exc_populations)
-
-
-        transition_matrix = np.zeros((num_clusters, num_clusters))
-
-        for i in range(num_clusters):
-            for max_val, target_idx in zip(max_values[i], max_indices[i]):
-                transition_matrix[i, target_idx] = max_val
-
-        return transition_matrix
-
-    def plot_markov_chain(self, transition_matrix):
-        fig, ax = plt.subplots(figsize=(10, 8))
-        G = nx.DiGraph()
-        exc_populations = self.Populations[0].get_Populations()
-
-        epsilon = 1e-5
-        log_prob_matrix = np.log(transition_matrix + epsilon)
-        min_log_prob = np.min(log_prob_matrix[log_prob_matrix > -np.inf])
-        max_log_prob = np.max(log_prob_matrix)
-
-        for i, pop in enumerate(exc_populations):
-            G.add_node(i, label=pop.name)
-
-        edge_colors = []
-        edge_widths = []
-        for i in range(len(transition_matrix)):
-            for j in range(len(transition_matrix[i])):
-                if transition_matrix[i][j] > 0:
-                    G.add_edge(i, j, weight=transition_matrix[i][j])
-                    normalized_weight = (np.log(transition_matrix[i][j] + epsilon) - min_log_prob) / (max_log_prob - min_log_prob)
-                    color = plt.cm.viridis(normalized_weight)
-                    edge_colors.append(color)
-                    edge_width = 2 if transition_matrix[i][j] == np.max(transition_matrix[i]) else 1
-                    edge_widths.append(edge_width)
-
-        pos = nx.circular_layout(G)
-        nx.draw(G, pos, node_color='lightblue', with_labels=True, node_size=5000, font_size=15, ax=ax)
-        edges = nx.draw_networkx_edges(G, pos, arrowstyle='-|>', arrowsize=20, edge_color=edge_colors, width=edge_widths, ax=ax)
-
-        norm = mcolors.Normalize(vmin=min_log_prob, vmax=max_log_prob)
-        sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
-        sm.set_array([])
-        plt.colorbar(sm, ax=ax)
-
-        ax.set_title("Markov Chain Transition Diagram")
-        plt.show()
 
     def create_recording_devices(self):
         """

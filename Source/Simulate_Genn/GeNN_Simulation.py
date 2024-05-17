@@ -6,6 +6,7 @@ import time
 sys.path.append("..")
 from Defaults import defaultSimulate as default
 from Helper import ClusterModelGeNN
+from ClusterNetworkGeNN_MC import ClusterNetworkGeNN_MC
 from Helper import GeNN_Models
 import psutil
 import matplotlib.pyplot as plt
@@ -54,12 +55,11 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
-              'Q': 10,  # 'stim_clusters': [20], 'stim_starts': [500, 1000, 1500], 'stim_ends': [750, 1250, 1750],
-              'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
+              'Q': 10, 'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
               }
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
-    jep = 4.0  # clustering strength
+    jep = 4.0 #2.8  # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
     I_ths = [2.13,
@@ -74,14 +74,12 @@ if __name__ == '__main__':
     else:
         params['matrixType'] = "SPARSE_GLOBALG"
 
-    record_start = params['warmup']
-    record_end = record_start + 2500
-    record_end_start = params['simtime'] - 1000
-    record_end_end = params['simtime']
-
     for ii in range(1):
-        EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-        num_clusters = params['Q']
+        # EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
+        # num_clusters = params['Q']
+        # sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
+        EI_Network = ClusterNetworkGeNN_MC(default, params, batch_size=1, NModel="LIF")
+        num_clusters = 3
         sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
 
         print(f"Running simulation for sequence: {sequence}")
@@ -103,9 +101,7 @@ if __name__ == '__main__':
         EI_Network.build_model()
         EI_Network.load_model()
         num_epochs = 10
-        # for epoch in range(num_epochs):
-        #     print(f"Epoch {epoch + 1}/{num_epochs}")
-        #     EI_Network.simulate_and_get_recordings()
+
         # spiketimes = EI_Network.simulate_and_get_recordings()
         first_epoch_spikes = None
         last_epoch_spikes = None
@@ -126,6 +122,7 @@ if __name__ == '__main__':
         EI_Network.plot_markov_chain(transition_matrix)
 
         plt.figure()
+        #plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.')
         plt.plot(first_epoch_spikes[0][0, :], first_epoch_spikes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence} (First Epoch)")
         plt.xlabel("Time (ms)")
