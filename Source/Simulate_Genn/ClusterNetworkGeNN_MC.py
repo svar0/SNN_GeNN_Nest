@@ -13,30 +13,23 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
         self.labels = None
         self.transition_matrix = None
         self.state = None
+    """
+            Creates a Markov Chain and returns  the labels for each cluster, the transition matrix, and the state.
 
+            Steps for the Markov Chain to the next state based on the current state.
+            The new state is not the same as the current state and returns the new state
+            
+            Simulates the Markov Chain for a given number of steps and returns the list of states.
+    """
     def create_MC(self, transition_matrix, initial_state):
-        """
-        Creates a Markov Chain with the given transition matrix and initial state.
-        Sets labels for each cluster, the transition matrix, and the initial state.
 
-        Parameters:
-            transition_matrix (np.array): Transition matrix of the Markov Chain.
-            initial_state (int): Initial state of the Markov Chain.
-        """
         num_clusters = transition_matrix.shape[0]
         self.labels = {i: chr(65 + i) for i in range(num_clusters)}
         self.transition_matrix = transition_matrix
         self.state = initial_state
 
     def step_MC(self):
-        """
-        Steps the Markov Chain to the next state based on the current state.
-        Ensures the new state is not the same as the current state.
-        Returns the new state.
 
-        Returns:
-            int: New state of the Markov Chain.
-        """
         if self.state is None or self.transition_matrix is None:
             raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
 
@@ -49,16 +42,7 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
         return self.state
 
     def simulate_MC(self, steps):
-        """
-        Simulates the Markov Chain for a given number of steps.
-        Returns the list of states.
 
-        Parameters:
-            steps (int): Number of steps to simulate.
-
-        Returns:
-            list: List of states of the Markov Chain.
-        """
         if self.state is None or self.transition_matrix is None:
             raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
 
