@@ -13,28 +13,26 @@ from Helper import GeNN_Models
 class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
     def __init__(self, defaultValues, parameters, batch_size=1, NModel="LIF"):
         super().__init__(defaultValues, parameters, batch_size, NModel)
-        self.labels = None
         self.transition_matrix = None
         self.state = None
         self.visited_states = set()
 
     def create_MC(self, transition_matrix, initial_state):
         num_clusters = transition_matrix.shape[0]
-        self.labels = {i: chr(65 + i) for i in range(num_clusters)}
         self.transition_matrix = transition_matrix
         self.state = initial_state
         self.visited_states = {initial_state}
 
     def step_MC(self):
         if self.state is None or self.transition_matrix is None:
-            raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
+            raise ValueError("Markov Chain not initialized")
 
         probabilities = self.transition_matrix[self.state].copy()
         for visited_state in self.visited_states:
             probabilities[visited_state] = 0
 
         if probabilities.sum() == 0:
-            raise ValueError("All states have been visited. No more transitions possible.")
+            raise ValueError("No more transitions possible.")
 
         probabilities = probabilities / probabilities.sum()
         new_state = np.random.choice(len(probabilities), p=probabilities)

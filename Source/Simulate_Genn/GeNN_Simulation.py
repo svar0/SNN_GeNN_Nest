@@ -57,6 +57,7 @@ if __name__ == '__main__':
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
               'Q': 10, 'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
               }
+    params['simtime'] = 2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
     jep = 4.0 #2.8  # clustering strength
@@ -118,11 +119,25 @@ if __name__ == '__main__':
 
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}/{num_epochs}")
+            print(f"Stimulation starts: {params['stim_starts']}")
+            print(f"Stimulation ends: {params['stim_ends']}")
             spikes = EI_Network.simulate_and_get_recordings()
+            print(f"Spikes for epoch {epoch + 1}:")
+            # if spikes[0].size > 0:
+            #     spike_times = spikes[0][0, :]
+            #     spike_indices = spikes[0][1, :]
+            #     for time, index in zip(spike_times, spike_indices):
+            #         print(f"Time: {time:.2f} ms, Neuron: {index}")
+            # else:
+            #     print("No spikes recorded in this epoch.")
+
             if epoch == 0:
                 first_epoch_spikes = spikes
             if epoch == num_epochs - 1:
                 last_epoch_spikes = spikes
+
+        print(f"First epoch spikes: {first_epoch_spikes}")
+        print(f"Last epoch spikes: {last_epoch_spikes}")
 
         EI_Network.make_synapse_matrices()
         EI_Network.create_full_network_connectivity_matrix()
@@ -155,12 +170,6 @@ if __name__ == '__main__':
         plt.plot(last_epoch_spikes[0][0, :], last_epoch_spikes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence} (Last Epoch)")
         plt.xlabel("Time (ms)")
-        for i in range(params['Q']):
-            y = i * neurons_per_cluster
-            plt.axhline(y=y, color='gray', linestyle='--')
-            ax.text(-0.10, y + neurons_per_cluster / 2, f'{i}', transform=ax.get_yaxis_transform(),
-                    horizontalalignment='right', verticalalignment='center')
-
         for start, end, cluster in zip(params['stim_starts'], params['stim_ends'], sequence):
             plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
             plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
