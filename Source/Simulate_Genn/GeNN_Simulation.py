@@ -50,17 +50,17 @@ if __name__ == '__main__':
 
     startTime = time.time()
     baseline = {'N_E': 80, 'N_I': 20,  # number of E/I neurons -> typical 4:1
-                'simtime': 600, 'warmup': 10}
+                'simtime': 600, 'warmup': 0}
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
-              'neuron_type': 'iaf_psc_exp', 'simtime': FactorTime * baseline['simtime'], 'delta_I_xE': 0.,
-              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': FactorTime * baseline['warmup'],
+              'neuron_type': 'iaf_psc_exp', 'simtime': 5000, 'delta_I_xE': 0.,
+              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
               'Q': 10, 'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
               }
     params['simtime'] = 2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
-    jep = 4.0 #2.8  # clustering strength
+    jep = 4.0  # 2.8  # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
     I_ths = [2.13,
@@ -76,9 +76,6 @@ if __name__ == '__main__':
         params['matrixType'] = "SPARSE_GLOBALG"
 
     for ii in range(1):
-        # EI_Network = ClusterModelGeNN.ClusteredNetworkGeNN_Timing(default, params, batch_size=1, NModel="LIF")
-        # num_clusters = params['Q']
-        # sequence = EI_Network.generate_markov_chain_sequences(1, num_clusters)[0]
         EI_Network = ClusterNetworkGeNN_MC(default, params, batch_size=1, NModel="LIF")
         num_clusters = 3
         transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
@@ -90,15 +87,14 @@ if __name__ == '__main__':
         steps = 2
         states = EI_Network.simulate_MC(steps)
         print(f"States after {steps} steps: {states}")
-
         sequence = states
 
         print(f"Running simulation for sequence: {sequence}")
-        stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in
-                       range(len(sequence))]
+        stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
         params['stim_starts'] = stim_starts
         params['stim_ends'] = stim_ends
+
         EI_Network.set_model_build_pipeline([
             lambda: EI_Network.setup_GeNN(Name="EICluster" + str(sequence)),
             EI_Network.create_populations,
@@ -108,28 +104,23 @@ if __name__ == '__main__':
             EI_Network.create_learning_synapses,
             EI_Network.prepare_global_parameters,
         ])
+
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
-        num_epochs = 3
 
-        # spiketimes = EI_Network.simulate_and_get_recordings()
+        t_onset_values = stim_starts
+        t_offset_values = stim_ends
+        EI_Network.Populations.set_global_Param('t_onset', t_onset_values)
+        EI_Network.Populations.set_global_Param('t_offset', t_offset_values)
+
+        num_epochs = 3
         first_epoch_spikes = None
         last_epoch_spikes = None
 
         for epoch in range(num_epochs):
-            print(f"Epoch {epoch + 1}/{num_epochs}")
-            print(f"Stimulation starts: {params['stim_starts']}")
-            print(f"Stimulation ends: {params['stim_ends']}")
             spikes = EI_Network.simulate_and_get_recordings()
-            print(f"Spikes for epoch {epoch + 1}:")
-            # if spikes[0].size > 0:
-            #     spike_times = spikes[0][0, :]
-            #     spike_indices = spikes[0][1, :]
-            #     for time, index in zip(spike_times, spike_indices):
-            #         print(f"Time: {time:.2f} ms, Neuron: {index}")
-            # else:
-            #     print("No spikes recorded in this epoch.")
+            print(f"Epoch {epoch + 1}")
 
             if epoch == 0:
                 first_epoch_spikes = spikes
@@ -143,11 +134,9 @@ if __name__ == '__main__':
         EI_Network.create_full_network_connectivity_matrix()
         EI_Network.display_full_network_connectivity_matrix()
         EI_Network.display_full_normalized_network_connectivity_matrix()
-        #transition_matrix = EI_Network.create_markov_chain()
         EI_Network.plot_markov_chain(transition_matrix)
 
         plt.figure()
-        #plt.plot(spiketimes[0][0, :], spiketimes[0][1, :], '.')
         plt.plot(first_epoch_spikes[0][0, :], first_epoch_spikes[0][1, :], '.', ms=0.5)
         plt.title(f"Spiketimes for Sequence: {sequence} (First Epoch)")
         plt.xlabel("Time (ms)")
@@ -175,5 +164,4 @@ if __name__ == '__main__':
             plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
             plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
         plt.show()
-
 

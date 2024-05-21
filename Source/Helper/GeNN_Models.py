@@ -428,7 +428,8 @@ def define_ClusterStim():
     """
     cluster_stimulus = genn_model.create_custom_current_source_class(
         "cluster_stimulus",
-        param_names=['t_onset', 't_offset', 'strength'],
+        param_names=['strength'],
+        extra_global_params=[('t_onset', 'float'), ('t_offset', 'float')],
         injection_code=
         """
         if ((t>=$(t_onset))&&(t<$(t_offset))){
@@ -458,10 +459,10 @@ def define_Poisson_model():
     )
     return poisson_model
 
+#        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
 
 def define_symmetric_stdp():
-
-    symmetric_stdp = genn_model.create_custom_weight_update_class(
+    asymmetric_stdp = genn_model.create_custom_weight_update_class(
         "symmetric_stdp",
         param_names=["tau", "rho", "eta", "wMin", "wMax"],
         var_name_types=[("g", "scalar")],
@@ -483,5 +484,5 @@ def define_symmetric_stdp():
         is_pre_spike_time_required=True,
         is_post_spike_time_required=True
     )
-    return symmetric_stdp
+    return asymmetric_stdp
 

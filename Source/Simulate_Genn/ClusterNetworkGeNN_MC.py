@@ -42,7 +42,7 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
 
     def simulate_MC(self, steps):
         if self.state is None or self.transition_matrix is None:
-            raise ValueError("Markov Chain not initialized. Please run create_MC() first.")
+            raise ValueError("Markov Chain not initialized")
 
         states = [self.state]
         try:
@@ -72,7 +72,7 @@ class ClusterNetworkGeNN_MC(ClusterModelGeNN.ClusteredNetworkGeNN_Timing):
                     G.add_edge(i, j, weight=transition_matrix[i][j])
                     color = plt.cm.viridis(transition_matrix[i][j])
                     edge_colors.append(color)
-                    edge_widths.append(2 * transition_matrix[i][j])
+                    edge_widths.append(3 * transition_matrix[i][j])
                     edge_labels[(i, j)] = f'{transition_matrix[i][j]:.2f}'
 
         pos = nx.spring_layout(G)
@@ -116,5 +116,5 @@ if __name__ == "__main__":
     spikes = EI_cluster_mc.create_and_simulate()
     print(EI_cluster_mc.get_parameter())
     plt.figure()
-    plt.plot(spikes[0][0, :], spikes[0][1, :], '.', markersize=1)
+    plt.plot(spikes[0][0, :], spikes[0][1, :], '.', markersize=0.5)
     plt.show()
