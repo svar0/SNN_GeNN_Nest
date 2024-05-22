@@ -328,14 +328,10 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             for j, post in enumerate(self.Populations[0].get_Populations()):
                 if  j==i:
                     continue
-                # else:
-                #     if j == (i+1):
-                #         syn_dict = {"g": 0.2}
-                #     else:
-                #         syn_dict = {"g": 0.}
+                # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.009}, {},
+                                                          asymmetric_stdp, stdp_params, {"g": 0.04}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -452,13 +448,15 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         for i in range(self.params['Q']):
             y = i * neurons_per_cluster
             plt.axhline(y=y, color='gray', linestyle='--')
-            ax.text(-0.10, y + neurons_per_cluster / 2, f'{i}', transform=ax.get_yaxis_transform(), horizontalalignment='right', verticalalignment='center')
+            ax.text(-0.10, y + neurons_per_cluster / 2, f'{i}', transform=ax.get_yaxis_transform(),
+                    horizontalalignment='right', verticalalignment='center')
 
         for start, end, cluster in zip(stim_starts, stim_ends, sequence):
             plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
             plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
             plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
-            plt.show()
+
+        plt.show()
 
     def create_recording_devices(self):
         """

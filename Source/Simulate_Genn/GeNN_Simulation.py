@@ -55,15 +55,15 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 2.0, 'stim_duration': 70, 'inter_stim_delay': 0.0
+              'Q': 10, 'stim_amp': 3.0, 'stim_duration': 70, 'inter_stim_delay': 0.0
               }
-    params['simtime'] = 600 #210  # 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 210  # 2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
     jep = 7.0  # 2.8  # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [2.13, 1.24]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [5.34,2.61]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         EI_Network.load_model()
 
         # Training
-        num_epochs_train = 50
+        num_epochs_train = 10
         first_epoch_spikes_train = None
         last_epoch_spikes_train = None
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
             for ii, pop in enumerate(EI_Network.current_source):
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
                 pop.extra_global_params['t_offset'].view[:] = stim_ends[ii] + EI_Network.model.t
-            print(f"Running simulation for epoch {epoch + 1} (Train)")
+            print(f"Running simulation for epoch {epoch + 1} (Training)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
             if epoch == 0:
@@ -127,22 +127,24 @@ if __name__ == '__main__':
 
         # Testing
         first_element_sequence = [sequence[0]]
-        stim_starts = [params['warmup']]
-        stim_ends = [params['warmup'] + params['stim_duration']]
-        params['stim_starts'] = stim_starts
-        params['stim_ends'] = stim_ends
+        stim_starts_test = [params['warmup']]
+        stim_ends_test = [params['warmup'] + params['stim_duration']]
+        params['stim_starts'] = stim_starts_test
+        params['stim_ends'] = stim_ends_test
         last_epoch_spikes_test = None
 
         num_epochs_test = 1
 
         for epoch in range(num_epochs_test):
             for ii, pop in enumerate(EI_Network.current_source):
-                if ii >= len(stim_starts) or ii >= len(stim_ends):
-                    print(f"Skipping index {ii} as it is out of range for stim_starts or stim_ends")
-                    continue
-                pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
-                pop.extra_global_params['t_offset'].view[:] = stim_ends[ii] + EI_Network.model.t
-            print(f"Running simulation for epoch {epoch + 1} (Test)")
+                if ii == first_element_sequence[0]:
+                    pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
+                    pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
+                else:
+                    # Set onset and offset to a high value to effectively disable stimulation for other clusters
+                    pop.extra_global_params['t_onset'].view[:] = float('inf')
+                    pop.extra_global_params['t_offset'].view[:] = float('inf')
+            print(f"Running simulation for epoch {epoch + 1} (Testing)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
             if epoch == num_epochs_test - 1:
