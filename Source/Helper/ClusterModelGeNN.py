@@ -374,13 +374,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             print(f"Epoch {epoch + 1}/{num_epochs}")
             self.create_stimulation(sequence)
             self.simulate_and_get_recordings()
-        print("Training completed.")
-    def test_network(self, sequence):
-        test_sequence = [seq[0] for seq in sequence]
-        self.create_stimulation(test_sequence)
-        spike_data = self.simulate_and_get_recordings()
-        return spike_data
-
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
         self.connectivity_matrices = {}
@@ -448,6 +441,24 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         plt.ylabel('Neuron ID (Pre-synaptic)')
         plt.show()
 
+    def plot_spikes(self, spikes, title, stim_starts, stim_ends, sequence):
+        plt.figure()
+        plt.plot(spikes[0][0, :], spikes[0][1, :], '.', ms=0.5)
+        plt.title(f"{title}\nSequence: {sequence}")
+        plt.xlabel("Time (ms)")
+        neurons_per_cluster = self.params['N_E'] // self.params['Q']
+        cluster_labels = {i * neurons_per_cluster: f'Cluster {i}' for i in range(self.params['Q'])}
+        ax = plt.gca()
+        for i in range(self.params['Q']):
+            y = i * neurons_per_cluster
+            plt.axhline(y=y, color='gray', linestyle='--')
+            ax.text(-0.10, y + neurons_per_cluster / 2, f'{i}', transform=ax.get_yaxis_transform(), horizontalalignment='right', verticalalignment='center')
+
+        for start, end, cluster in zip(stim_starts, stim_ends, sequence):
+            plt.axvline(x=start, color='red', linestyle='--', lw=0.8)
+            plt.axvline(x=end, color='green', linestyle='--', lw=0.8)
+            plt.text((start + end) / 2, plt.ylim()[1] * 0.95, f'{cluster}', horizontalalignment='center', color='black')
+            plt.show()
 
     def create_recording_devices(self):
         """
