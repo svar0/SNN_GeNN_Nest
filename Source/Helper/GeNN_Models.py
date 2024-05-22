@@ -459,7 +459,6 @@ def define_Poisson_model():
     )
     return poisson_model
 
-#        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
 
 def define_symmetric_stdp():
     asymmetric_stdp = genn_model.create_custom_weight_update_class(
@@ -478,7 +477,7 @@ def define_symmetric_stdp():
         """
         const scalar dt = $(t) - $(sT_pre);
         const scalar timing = fmax(exp(-dt / $(tau)) - $(rho), -0.1*$(rho));
-        const scalar newWeight = $(g) + ($(eta) * timing);
+        const scalar newWeight = $(g) - ($(eta) * timing);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         is_pre_spike_time_required=True,
