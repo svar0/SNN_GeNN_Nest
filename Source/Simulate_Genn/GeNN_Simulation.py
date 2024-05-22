@@ -53,14 +53,14 @@ if __name__ == '__main__':
                 'simtime': 600, 'warmup': 0}
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
-              'neuron_type': 'iaf_psc_exp', 'simtime': 5000, 'delta_I_xE': 0.,
+              'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 1.0, 'stim_duration': 200, 'inter_stim_delay': -20.0
+              'Q': 10, 'stim_amp': 2.0, 'stim_duration': 70, 'inter_stim_delay': 0.0
               }
-    params['simtime'] = 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 210#2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
-    jep = 4.0  # 2.8  # clustering strength
+    jep = 7.0  # 2.8  # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
     I_ths = [2.13,
@@ -89,6 +89,13 @@ if __name__ == '__main__':
         print(f"States after {steps} steps: {states}")
         sequence = states
 
+        first_element_sequence = [sequence[0]]
+        print(f"Running simulation for first element of sequence: {first_element_sequence}")
+        stim_starts = [params['warmup']]
+        stim_ends = [params['warmup'] + params['stim_duration']]
+        params['stim_starts'] = stim_starts
+        params['stim_ends'] = stim_ends
+
         print(f"Running simulation for sequence: {sequence}")
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
@@ -111,15 +118,16 @@ if __name__ == '__main__':
 
         t_onset_values = stim_starts
         t_offset_values = stim_ends
-        EI_Network.Populations.set_global_Param('t_onset', t_onset_values)
-        EI_Network.Populations.set_global_Param('t_offset', t_offset_values)
 
-        num_epochs = 3
+        num_epochs = 10
         first_epoch_spikes = None
         last_epoch_spikes = None
 
         for epoch in range(num_epochs):
-            spikes = EI_Network.simulate_and_get_recordings()
+            for ii, pop in enumerate(EI_Network.current_source):
+                pop.extra_global_params['t_onset'].view[:] = t_onset_values[ii]+EI_Network.model.t
+                pop.extra_global_params['t_offset'].view[:] = t_offset_values[ii]+EI_Network.model.t
+            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
             print(f"Epoch {epoch + 1}")
 
             if epoch == 0:
