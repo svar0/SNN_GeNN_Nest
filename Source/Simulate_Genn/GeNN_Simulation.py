@@ -140,10 +140,6 @@ if __name__ == '__main__':
                 if ii == first_element_sequence[0]:
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
                     pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
-                else:
-                    # Set onset and offset to a high value to effectively disable stimulation for other clusters
-                    pop.extra_global_params['t_onset'].view[:] = float('inf')
-                    pop.extra_global_params['t_offset'].view[:] = float('inf')
             print(f"Running simulation for epoch {epoch + 1} (Testing)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
