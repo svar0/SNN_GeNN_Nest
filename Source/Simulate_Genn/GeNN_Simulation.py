@@ -55,15 +55,15 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 3.0, 'stim_duration': 70, 'inter_stim_delay': 0.0
+              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0
               }
-    params['simtime'] = 210  # 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
-    jip_ratio = 0.75  # 0.75 default value  #works with 0.95 and gif wo adaptation
-    jep = 7.0  # 2.8  # clustering strength
+    jip_ratio = 0.7  # 0.75 default value  #works with 0.95 and gif wo adaptation
+    jep = 3.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [5.34,2.61]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [3.3, 2.6]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         EI_Network.load_model()
 
         # Training
-        num_epochs_train = 10
+        num_epochs_train = 200
         first_epoch_spikes_train = None
         last_epoch_spikes_train = None
 

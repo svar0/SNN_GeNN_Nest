@@ -304,11 +304,14 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         psc_E = {"tau": self.params['tau_syn_ex']}
 
 
-        stdp_params = {"tau": 30.0,
+        stdp_params = {"tau": 100.0,
                        "rho": 0.1,
-                       "eta": 0.0002,
+                       #"eta": 0.0002,
+                       "eta": 0.012,
                        "wMin": 0.0,
-                       "wMax": 10.0}
+                       "wMax": 10.0,
+                       "alpha": 0.6
+                       }
 
         # define the synapses and connect the populations
         # EE
@@ -323,7 +326,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
                                                           {"prob": self.params['ps'][0, 0]})
 
-        asymmetric_stdp = GeNN_Models.define_symmetric_stdp()
+        symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
                 if  j==i:
@@ -331,7 +334,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          asymmetric_stdp, stdp_params, {"g": 0.04}, {},
+                                                          symmetric_stdp, stdp_params, {"g": 0.00, "low_pass": 0.01}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
