@@ -11,7 +11,7 @@ class SuperPopulation:
     """
     def __init__(self, Populations: [], name: str):
         self.Populations = Populations  
-        self.name=name
+        self.name = name
 
     def get_Populations(self):
         return self.Populations

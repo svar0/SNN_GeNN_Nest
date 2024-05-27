@@ -460,52 +460,25 @@ def define_Poisson_model():
     return poisson_model
 
 
-# def define_symmetric_stdp():
-#     symmetric_stdp = genn_model.create_custom_weight_update_class(
-#         "symmetric_stdp",
-#         param_names=["tau", "rho", "eta", "wMin", "wMax"],
-#         var_name_types=[("g", "scalar")],
-#         sim_code=
-#         """
-#         $(addToInSyn, $(g));
-#         const scalar dt = $(t) - $(sT_post);
-#         const scalar timing = exp(-dt / $(tau)) - $(rho);
-#         const scalar newWeight = 0.95*$(g) + ($(eta) * timing);
-#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-#         """,
-#         learn_post_code=
-#         """
-#         const scalar dt = $(t) - $(sT_pre);
-#         const scalar timing = fmax(exp(-dt / $(tau)) - $(rho), -0.1*$(rho));
-#         const scalar newWeight = 0.95*$(g) + ($(eta) * timing);
-#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-#         """,
-#         is_pre_spike_time_required=True,
-#         is_post_spike_time_required=True
-#     )
-#     return symmetric_stdp
 def define_symmetric_stdp():
     symmetric_stdp = genn_model.create_custom_weight_update_class(
         "symmetric_stdp",
-        param_names=["tau", "rho", "eta", "wMin", "wMax", "alpha"],
-        var_name_types=[("g", "scalar"), ("low_pass", "scalar")],
+        param_names=["tau", "rho", "eta", "wMin", "wMax"],
+        var_name_types=[("g", "scalar")],
         sim_code=
         """
         $(addToInSyn, $(g));
         const scalar dt = $(t) - $(sT_post);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = 0.95 * $(g) + ($(eta) * timing);
+        const scalar newWeight = 0.95*$(g) + ($(eta) * timing);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-        $(g) = $(low_pass);
         """,
         learn_post_code=
         """
         const scalar dt = $(t) - $(sT_pre);
-        const scalar timing = fmax(exp(-dt / $(tau)) - $(rho), -0.1 * $(rho));
-        const scalar newWeight = 0.95 * $(g) + ($(eta) * timing);
+        const scalar timing = fmax(exp(-dt / $(tau)) - $(rho), -0.1*$(rho));
+        const scalar newWeight = 0.95*$(g) + ($(eta) * timing);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-        $(low_pass) = $(alpha) * $(low_pass) + (1 - $(alpha)) * $(g);
-        $(g) = $(low_pass);
         """,
         is_pre_spike_time_required=True,
         is_post_spike_time_required=True

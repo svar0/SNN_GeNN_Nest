@@ -310,7 +310,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                        "eta": 0.012,
                        "wMin": 0.0,
                        "wMax": 10.0,
-                       "alpha": 0.6
                        }
 
         # define the synapses and connect the populations
@@ -334,7 +333,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, stdp_params, {"g": 0.00, "low_pass": 0.01}, {},
+                                                          symmetric_stdp, stdp_params, {"g": 0.00}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
