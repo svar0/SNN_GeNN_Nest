@@ -59,7 +59,7 @@ if __name__ == '__main__':
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
-    jip_ratio = 0.7  # 0.75 default value  #works with 0.95 and gif wo adaptation
+    jip_ratio = 0.7 #0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 3.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
@@ -108,11 +108,11 @@ if __name__ == '__main__':
         EI_Network.build_model()
         EI_Network.load_model()
 
-        # Training
-        num_epochs_train = 200
-        first_epoch_spikes_train = None
-        last_epoch_spikes_train = None
+        g_values = []
+        z_values = []
 
+        # Training
+        num_epochs_train = 3
         for epoch in range(num_epochs_train):
             for ii, pop in enumerate(EI_Network.current_source):
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
@@ -122,8 +122,37 @@ if __name__ == '__main__':
 
             if epoch == 0:
                 first_epoch_spikes_train = spikes
-            if epoch == num_epochs_train - 1:
+            if epoch == num_epochs_train - 2:
                 last_epoch_spikes_train = spikes
+            if epoch == num_epochs_train - 1:
+                last_epoch_spikes_train_without = spikes
+
+            epoch_g_view = []
+            epoch_z_view = []
+            for synapse in EI_Network.synapses:
+                synapse.pull_var_from_device("g")
+                synapse.pull_var_from_device("z")
+                epoch_g_view.append(synapse.vars["g"].view.copy())
+                epoch_z_view.append(synapse.vars["z"].view.copy())
+
+            g_values.append(epoch_g_view)
+            z_values.append(epoch_z_view)
+
+            fig1, ax1 = plt.subplots(figsize=(10, 5))
+            for i, g_synapse in enumerate(g_values):
+                ax1.plot(g_synapse)
+            ax1.set_title(f"Synaptic Weights (g) for Epoch {epoch + 1}")
+            ax1.set_xlabel("Synapse Index")
+            ax1.set_ylabel("Weight (g)")
+            plt.show()
+
+            fig2, ax2 = plt.subplots(figsize=(10, 5))
+            for i, z_synapse in enumerate(z_values):
+                ax2.plot(z_synapse)
+            ax2.set_title(f"Homeostatic Variable (z) for Epoch {epoch + 1}")
+            ax2.set_xlabel("Synapse Index")
+            ax2.set_ylabel("Homeostatic Variable (z)")
+            plt.show()
 
         # Testing
         first_element_sequence = [sequence[0]]
@@ -162,5 +191,7 @@ if __name__ == '__main__':
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)
         EI_Network.plot_spikes(last_epoch_spikes_train, "Spiketimes for Sequence: (Last Epoch of Training)", stim_starts, stim_ends, sequence)
+        EI_Network.plot_spikes(last_epoch_spikes_train_without, "Spiketimes for Sequence: (Last Epoch of Training without current source)",stim_starts, stim_ends, sequence)
 
         EI_Network.plot_spikes(last_epoch_spikes_test, "Spiketimes for First Element of Sequence: (Last Epoch of Testing)", stim_starts, stim_ends, sequence)
+

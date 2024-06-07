@@ -50,7 +50,9 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.Timing = {'Sim': [], 'Download': []}
         self.synapses = []
         self.synapse_ref = {}
+        self.synapses_g_view = []
         self.current_source = []
+        self.synapse_populations = []
 
     def clean_network(self):
         """
@@ -304,12 +306,17 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         psc_E = {"tau": self.params['tau_syn_ex']}
 
 
-        stdp_params = {"tau": 100.0,
-                       "rho": 0.1,
-                       #"eta": 0.0002,
-                       "eta": 0.012,
-                       "wMin": 0.0,
+        stdp_params = {"tau": 20.0,
+                       "rho": 0.01,
+                       "eta": 0.0,#002,
+                       "wMin": -10,#0,#-10.0,
                        "wMax": 10.0,
+                       "tau_hom": 1000.0,
+                       "lambda_h": 0.1,
+                       "lambda_p": 1.0,
+                       "lambda_n": 0.1,
+                       "N": 1.0,
+                       "z_star": 10.0
                        }
 
         # define the synapses and connect the populations
@@ -333,13 +340,14 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, stdp_params, {"g": 0.00}, {},
+                                                          symmetric_stdp, stdp_params, {"g": 0.0, "z": 0.0}, {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
                 #print(f"Creating STDP synapse between {pre.name} and {post.name}")
                 self.synapses.append(synapse)
                 self.synapse_ref[synapse] = (pre, post)
+                self.synapse_populations.append(synapse)
                 synapse.weight_recording_enabled = True
 
     def create_stimulation(self, sequence):
@@ -425,6 +433,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
     def normalize_matrix(self, matrix):
         row_sums = matrix.sum(axis=1, keepdims=True)
+        row_sums[row_sums == 0] = 1
         normalized_matrix = matrix / row_sums
         return normalized_matrix
 
