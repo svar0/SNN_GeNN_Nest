@@ -55,7 +55,7 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0
+              'Q': 10, 'stim_amp':1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim' : 0
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
@@ -108,8 +108,6 @@ if __name__ == '__main__':
         EI_Network.build_model()
         EI_Network.load_model()
 
-        g_values = []
-        z_values = []
 
         # Training
         num_epochs_train = 3
@@ -117,6 +115,7 @@ if __name__ == '__main__':
             for ii, pop in enumerate(EI_Network.current_source):
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
                 pop.extra_global_params['t_offset'].view[:] = stim_ends[ii] + EI_Network.model.t
+                pop.extra_global_params['strength'].view[:] = params['stim_amp']
             print(f"Running simulation for epoch {epoch + 1} (Training)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
@@ -127,30 +126,27 @@ if __name__ == '__main__':
             if epoch == num_epochs_train - 1:
                 last_epoch_spikes_train_without = spikes
 
-            epoch_g_view = []
-            epoch_z_view = []
-            for synapse in EI_Network.synapses:
-                synapse.pull_var_from_device("g")
-                synapse.pull_var_from_device("z")
-                epoch_g_view.append(synapse.vars["g"].view.copy())
-                epoch_z_view.append(synapse.vars["z"].view.copy())
+            g_trace = []
+            z_trace = []
+            synapse_index = 0
+            synapse = EI_Network.synapses[synapse_index]
+            synapse.pull_var_from_device("g")
+            synapse.pull_var_from_device("z")
+            g_trace = synapse.vars["g"].view.copy()
+            z_trace = synapse.vars["z"].view.copy()
 
-            g_values.append(epoch_g_view)
-            z_values.append(epoch_z_view)
 
             fig1, ax1 = plt.subplots(figsize=(10, 5))
-            for i, g_synapse in enumerate(g_values):
-                ax1.plot(g_synapse)
-            ax1.set_title(f"Synaptic Weights (g) for Epoch {epoch + 1}")
-            ax1.set_xlabel("Synapse Index")
+            ax1.plot(g_trace, 'o')
+            ax1.set_title(f"Synaptic Weight (g) for Synapse {synapse_index} over Time")
+            ax1.set_xlabel("Time Step")
             ax1.set_ylabel("Weight (g)")
             plt.show()
 
             fig2, ax2 = plt.subplots(figsize=(10, 5))
-            for i, z_synapse in enumerate(z_values):
-                ax2.plot(z_synapse)
-            ax2.set_title(f"Homeostatic Variable (z) for Epoch {epoch + 1}")
-            ax2.set_xlabel("Synapse Index")
+            ax2.plot(z_trace, 'o')
+            ax2.set_title(f"Homeostatic Variable (z) for Synapse {synapse_index} over Time")
+            ax2.set_xlabel("Time Step")
             ax2.set_ylabel("Homeostatic Variable (z)")
             plt.show()
 
@@ -160,6 +156,7 @@ if __name__ == '__main__':
         stim_ends_test = [params['warmup'] + params['stim_duration']]
         params['stim_starts'] = stim_starts_test
         params['stim_ends'] = stim_ends_test
+        params['stim_amp'] = 0
         last_epoch_spikes_test = None
 
         num_epochs_test = 1
@@ -169,15 +166,12 @@ if __name__ == '__main__':
                 if ii == first_element_sequence[0]:
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
                     pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
-            print(f"Running simulation for epoch {epoch + 1} (Testing)")
+                    pop.extra_global_params['strength'].view[:] = params['stim_amp']
+            print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
             if epoch == num_epochs_test - 1:
                 last_epoch_spikes_test = spikes
-
-        # print(f"First epoch spikes: {first_epoch_spikes_train}")
-        # print(f"Last epoch spikes (Train): {last_epoch_spikes_train}")
-        # print(f"Last epoch spikes (Test): {last_epoch_spikes_test}")
 
         EI_Network.make_synapse_matrices()
         EI_Network.create_full_network_connectivity_matrix()
@@ -191,7 +185,4 @@ if __name__ == '__main__':
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)
         EI_Network.plot_spikes(last_epoch_spikes_train, "Spiketimes for Sequence: (Last Epoch of Training)", stim_starts, stim_ends, sequence)
-        EI_Network.plot_spikes(last_epoch_spikes_train_without, "Spiketimes for Sequence: (Last Epoch of Training without current source)",stim_starts, stim_ends, sequence)
-
         EI_Network.plot_spikes(last_epoch_spikes_test, "Spiketimes for First Element of Sequence: (Last Epoch of Testing)", stim_starts, stim_ends, sequence)
-

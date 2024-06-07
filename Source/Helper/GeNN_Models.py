@@ -421,6 +421,26 @@ def define_iaf_psc_exp_Ie(batchsize=1):
         return define_iaf_psc_exp_Ie_singleBatch()
 
 
+
+# def define_ClusterStim():
+#     """
+#     Defines a model of current source which will emit a current pulse between t_onset and t_offset at the given strength
+#     and otherwise does not inject any current.
+#     """
+#     cluster_stimulus = genn_model.create_custom_current_source_class(
+#         "cluster_stimulus",
+#         param_names=['strength'],
+#         extra_global_params=[('t_onset', 'float'), ('t_offset', 'float')],
+#         injection_code=
+#         """
+#         if ((t>=$(t_onset))&&(t<$(t_offset))){
+#             $(injectCurrent, $(strength));;
+#         }
+#         else {
+#             $(injectCurrent, 0);
+#         }
+#         """)
+#     return cluster_stimulus
 def define_ClusterStim():
     """
     Defines a model of current source which will emit a current pulse between t_onset and t_offset at the given strength
@@ -428,8 +448,7 @@ def define_ClusterStim():
     """
     cluster_stimulus = genn_model.create_custom_current_source_class(
         "cluster_stimulus",
-        param_names=['strength'],
-        extra_global_params=[('t_onset', 'float'), ('t_offset', 'float')],
+        extra_global_params=[('t_onset', 'float'), ('t_offset', 'float'), ('strength', 'float')],
         injection_code=
         """
         if ((t>=$(t_onset))&&(t<$(t_offset))){
@@ -440,6 +459,8 @@ def define_ClusterStim():
         }
         """)
     return cluster_stimulus
+
+
 
 def define_Poisson_model():
     """

@@ -309,7 +309,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         stdp_params = {"tau": 20.0,
                        "rho": 0.01,
                        "eta": 0.0,#002,
-                       "wMin": -10,#0,#-10.0,
+                       "wMin": -10.0,
                        "wMax": 10.0,
                        "tau_hom": 1000.0,
                        "lambda_h": 0.1,
@@ -370,7 +370,9 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                     self.Populations[0].get_Populations()[cluster_index],
                     {#"t_onset": stim_starts[ii],
                      #"t_offset": stim_ends[ii],
-                     "strength": self.params['stim_amp']}, {}
+                     #"strength": self.params['stim_amp']
+                    },
+                    {}
                 )
                 self.current_source.append(current_source)
                 print(f"Stimulating cluster {cluster_index} ({cluster_index}) from {stim_starts[ii]} to {stim_ends[ii]}")
