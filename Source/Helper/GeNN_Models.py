@@ -515,7 +515,7 @@ def define_symmetric_stdp():
         $(addToInSyn, $(g));
         const scalar dt = $(t) - $(sT_post);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + ($(lambda_p) * $(eta) * timing) + $(lambda_n) * $(N);
+        const scalar newWeight = 0.95*$(g) + ($(lambda_p) * $(eta) * timing) + $(lambda_n) * $(N);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         $(z) *= exp(-($(sT_post) - $(t)) / $(tau_hom));
         """,
@@ -526,7 +526,7 @@ def define_symmetric_stdp():
         $(z) *= exp(-($(sT_pre) - $(t)) / $(tau_hom));
         $(z) += 1;
         const scalar homeostasis = $(lambda_h) * ($(z_star) - $(z));
-        const scalar newWeight = $(g) + ($(lambda_p) * $(eta) * timing) + homeostasis + $(lambda_n) * $(N);
+        const scalar newWeight = 0.95*$(g) + ($(lambda_p) * $(eta) * timing) + homeostasis + $(lambda_n) * $(N);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         is_pre_spike_time_required=True,

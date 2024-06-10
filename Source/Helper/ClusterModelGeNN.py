@@ -53,6 +53,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         self.synapses_g_view = []
         self.current_source = []
         self.synapse_populations = []
+        self.stdp_params = {}
 
     def clean_network(self):
         """
@@ -300,24 +301,13 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         print('Js: ', js / np.sqrt(N))
 
+    def set_stdp_params(self, stdp_params):
+        self.stdp_params = stdp_params
+
     def create_learning_synapses(self):
 
         delaySteps = int((self.params['delay'] + 0.5 * self.model.dT) // self.model.dT)
         psc_E = {"tau": self.params['tau_syn_ex']}
-
-
-        stdp_params = {"tau": 20.0,
-                       "rho": 0.01,
-                       "eta": 0.0,#002,
-                       "wMin": -10.0,
-                       "wMax": 10.0,
-                       "tau_hom": 1000.0,
-                       "lambda_h": 0.1,
-                       "lambda_p": 1.0,
-                       "lambda_n": 0.1,
-                       "N": 1.0,
-                       "z_star": 10.0
-                       }
 
         # define the synapses and connect the populations
         # EE
@@ -340,7 +330,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, stdp_params, {"g": 0.0, "z": 0.0}, {},
+                                                          symmetric_stdp, self.stdp_params, {'g': self.params['g'], 'z': self.params['z']},
+                                                          {},
                                                           {},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )

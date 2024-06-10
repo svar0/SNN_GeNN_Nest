@@ -11,6 +11,11 @@ from Helper import GeNN_Models
 import psutil
 import matplotlib.pyplot as plt
 
+def calculate_firing_rate(spikes, sim_time):
+    num_neurons = len(spikes)
+    firing_rates = [len(spike_times) / (sim_time / 1000.0) for spike_times in spikes]
+    return np.mean(firing_rates)
+
 if __name__ == '__main__':
 
     MatrixType = 0
@@ -55,11 +60,12 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp':1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim' : 0
+              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.00, 'z': 5
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
-    jip_ratio = 0.7 #0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jip_ratio = 0.7  # 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 3.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
@@ -69,6 +75,21 @@ if __name__ == '__main__':
 
     params['I_th_E'] = I_ths[0]
     params['I_th_I'] = I_ths[1]
+
+    # STDP and Homeostasis parameters
+    stdp_params = {"tau": 20.0,
+            "rho": 0.01,
+            "eta": 0.00,
+            "wMin": -10.0,
+            "wMax": 10.0,
+            "tau_hom": 1000.0,
+            "lambda_h": 0.05,
+            "lambda_p": 1.0,
+            "lambda_n": 0.1,
+            "N": 10.0,
+            "z_star": 5.56
+    }
+
     timeout = 18000  # 5h
     if MatrixType >= 1:
         params['matrixType'] = "PROCEDURAL_GLOBALG"
@@ -77,6 +98,7 @@ if __name__ == '__main__':
 
     for ii in range(1):
         EI_Network = ClusterNetworkGeNN_MC(default, params, batch_size=1, NModel="LIF")
+        EI_Network.set_stdp_params(stdp_params)
         num_clusters = 3
         transition_matrix = np.random.dirichlet(np.ones(num_clusters), size=num_clusters)
         initial_state = 0
@@ -100,14 +122,13 @@ if __name__ == '__main__':
             lambda: EI_Network.create_stimulation(sequence),
             EI_Network.create_recording_devices,
             EI_Network.connect,
-            EI_Network.create_learning_synapses,
+            lambda: EI_Network.create_learning_synapses(),
             EI_Network.prepare_global_parameters,
         ])
 
         EI_Network.setup_network()
         EI_Network.build_model()
         EI_Network.load_model()
-
 
         # Training
         num_epochs_train = 3
@@ -126,6 +147,9 @@ if __name__ == '__main__':
             if epoch == num_epochs_train - 1:
                 last_epoch_spikes_train_without = spikes
 
+            mean_firing_rate = calculate_firing_rate(spikes, params['simtime'])
+            print(f"Epoch {epoch + 1} (Training): Mean Firing Rate = {mean_firing_rate:.2f} Hz")
+
             g_trace = []
             z_trace = []
 
@@ -143,7 +167,7 @@ if __name__ == '__main__':
             plt.show()
 
             fig2, ax2 = plt.subplots(figsize=(10, 5))
-            ax2.plot( z_trace, 'o')
+            ax2.plot(z_trace, 'o')
             ax2.set_title("Homeostatic Variables (z) for One Synapse Over Time")
             ax2.set_xlabel("Time (ms)")
             ax2.set_ylabel("Homeostatic Variable (z)")
