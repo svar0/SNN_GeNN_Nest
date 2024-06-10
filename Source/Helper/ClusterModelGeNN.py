@@ -407,8 +407,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             for j, target_pop in enumerate(exc_populations):
                 matrix_name = f"{source_pop.name}_to_{target_pop.name}"
                 matrix = self.synapse_matrices.get(matrix_name, np.zeros((source_pop.size, target_pop.size), dtype=np.float32))
-                if np.any(matrix < 0):
-                    print(f"Negative values from {source_pop.name} to {target_pop.name}")
                 full_matrix[row_start:row_start + source_pop.size, col_start:col_start + target_pop.size] = matrix
                 col_start += target_pop.size
             row_start += source_pop.size

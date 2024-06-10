@@ -60,8 +60,8 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
-              'g': 0.00, 'z': 5
+              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.00, 'z': 5.56
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
@@ -160,14 +160,14 @@ if __name__ == '__main__':
                 z_trace.append(synapse.vars["z"].view[0])
 
             fig1, ax1 = plt.subplots(figsize=(10, 5))
-            ax1.plot(g_trace, 'o')
+            ax1.plot(g_trace, '-o')
             ax1.set_title("Synaptic Weights (g) for One Synapse Over Time")
             ax1.set_xlabel("Time (ms)")
             ax1.set_ylabel("Weight (g)")
             plt.show()
 
             fig2, ax2 = plt.subplots(figsize=(10, 5))
-            ax2.plot(z_trace, 'o')
+            ax2.plot(z_trace, '-o')
             ax2.set_title("Homeostatic Variables (z) for One Synapse Over Time")
             ax2.set_xlabel("Time (ms)")
             ax2.set_ylabel("Homeostatic Variable (z)")
