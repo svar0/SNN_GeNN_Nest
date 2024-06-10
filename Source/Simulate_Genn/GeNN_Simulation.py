@@ -128,25 +128,24 @@ if __name__ == '__main__':
 
             g_trace = []
             z_trace = []
-            synapse_index = 0
-            synapse = EI_Network.synapses[synapse_index]
-            synapse.pull_var_from_device("g")
-            synapse.pull_var_from_device("z")
-            g_trace = synapse.vars["g"].view.copy()
-            z_trace = synapse.vars["z"].view.copy()
 
+            for synapse in EI_Network.synapses:
+                synapse.pull_var_from_device("g")
+                synapse.pull_var_from_device("z")
+                g_trace.append(synapse.vars["g"].view[0])
+                z_trace.append(synapse.vars["z"].view[0])
 
             fig1, ax1 = plt.subplots(figsize=(10, 5))
             ax1.plot(g_trace, 'o')
-            ax1.set_title(f"Synaptic Weight (g) for Synapse {synapse_index} over Time")
-            ax1.set_xlabel("Time Step")
+            ax1.set_title("Synaptic Weights (g) for One Synapse Over Time")
+            ax1.set_xlabel("Time (ms)")
             ax1.set_ylabel("Weight (g)")
             plt.show()
 
             fig2, ax2 = plt.subplots(figsize=(10, 5))
-            ax2.plot(z_trace, 'o')
-            ax2.set_title(f"Homeostatic Variable (z) for Synapse {synapse_index} over Time")
-            ax2.set_xlabel("Time Step")
+            ax2.plot( z_trace, 'o')
+            ax2.set_title("Homeostatic Variables (z) for One Synapse Over Time")
+            ax2.set_xlabel("Time (ms)")
             ax2.set_ylabel("Homeostatic Variable (z)")
             plt.show()
 
