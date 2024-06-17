@@ -2,19 +2,14 @@ import numpy as np
 import pickle
 import sys
 import time
+import psutil
+import matplotlib.pyplot as plt
 
 sys.path.append("..")
 from Defaults import defaultSimulate as default
 from Helper import ClusterModelGeNN
 from ClusterNetworkGeNN_MC import ClusterNetworkGeNN_MC
 from Helper import GeNN_Models
-import psutil
-import matplotlib.pyplot as plt
-
-def calculate_firing_rate(spikes, sim_time):
-    num_neurons = len(spikes)
-    firing_rates = [len(spike_times) / (sim_time / 1000.0) for spike_times in spikes]
-    return np.mean(firing_rates)
 
 if __name__ == '__main__':
 
@@ -55,21 +50,21 @@ if __name__ == '__main__':
 
     startTime = time.time()
     baseline = {'N_E': 80, 'N_I': 20,  # number of E/I neurons -> typical 4:1
-                'simtime': 600, 'warmup': 0}
+                'simtime': 450, 'warmup': 0}
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
-              'neuron_type': 'iaf_psc_exp', 'simtime': 900, 'delta_I_xE': 0.,
+              'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
-              'g': 0.00, 'z': 5.56
+              'Q': 10, 'stim_amp': 0.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.00, 'z': 5
               }
-    params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 10000  # 2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.7  # 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
-    jep = 3.8  # 2.8  #7 # clustering strength
+    jep = 7.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [3.3, 2.6]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [1.2, 0.7]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -77,18 +72,18 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # STDP and Homeostasis parameters
-    stdp_params = {"tau": 20.0,
-            "rho": 0.01,
-            "eta": 0.00,
+    stdp_params = {#"tau": 20.0,
+            #"rho": 0.01,
+            #"eta": 0.0,
             "wMin": -10.0,
             "wMax": 10.0,
-            "tau_hom": 1000.0,
-            "lambda_h": 0.05,
-            "lambda_p": 1.0,
-            "lambda_n": 0.1,
-            "N": 10.0,
-            "z_star": 5.56
-    }
+            "tau_h": 5000,
+            #"tau_hom": 1000.0,
+            "lambda_h": 5e-3,
+            #"lambda_p": 0.0,
+            #"lambda_n": 0.,
+            #"N": 10.0,
+            "z_star": 10.}
 
     timeout = 18000  # 5h
     if MatrixType >= 1:
@@ -126,12 +121,18 @@ if __name__ == '__main__':
             EI_Network.prepare_global_parameters,
         ])
 
-        EI_Network.setup_network()
-        EI_Network.build_model()
-        EI_Network.load_model()
+        # EI_Network.setup_network()
+        # EI_Network.build_model()
+        # EI_Network.load_model()
+        info = EI_Network.get_simulation()
+        print(info)
 
         # Training
         num_epochs_train = 3
+
+        g_trace = []
+        z_trace = []
+
         for epoch in range(num_epochs_train):
             for ii, pop in enumerate(EI_Network.current_source):
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
@@ -147,31 +148,27 @@ if __name__ == '__main__':
             if epoch == num_epochs_train - 1:
                 last_epoch_spikes_train_without = spikes
 
-            mean_firing_rate = calculate_firing_rate(spikes, params['simtime'])
-            print(f"Epoch {epoch + 1} (Training): Mean Firing Rate = {mean_firing_rate:.2f} Hz")
+            first_synapse = EI_Network.synapses[0]
+            first_synapse.pull_var_from_device("g")
+            #first_synapse.pull_var_from_device("z")
+            g_trace.append(first_synapse.vars["g"].view[:].copy())
+            #z_trace.append(first_synapse.vars["z"].view[:].copy())
 
-            g_trace = []
-            z_trace = []
-
-            for synapse in EI_Network.synapses:
-                synapse.pull_var_from_device("g")
-                synapse.pull_var_from_device("z")
-                g_trace.append(synapse.vars["g"].view[0])
-                z_trace.append(synapse.vars["z"].view[0])
-
-            fig1, ax1 = plt.subplots(figsize=(10, 5))
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        for epoch, g_trace in enumerate(g_trace):
             ax1.plot(g_trace, '-o')
-            ax1.set_title("Synaptic Weights (g) for One Synapse Over Time")
-            ax1.set_xlabel("Time (ms)")
-            ax1.set_ylabel("Weight (g)")
-            plt.show()
+        ax1.set_title("Synaptic Weights (g) Over All Epochs")
+        ax1.set_xlabel("Time (ms)")
+        ax1.set_ylabel("Weight (g)")
+        plt.show()
 
-            fig2, ax2 = plt.subplots(figsize=(10, 5))
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        for epoch, z_trace in enumerate(z_trace):
             ax2.plot(z_trace, '-o')
-            ax2.set_title("Homeostatic Variables (z) for One Synapse Over Time")
-            ax2.set_xlabel("Time (ms)")
-            ax2.set_ylabel("Homeostatic Variable (z)")
-            plt.show()
+        ax2.set_title("Homeostatic Variables (z) Over All Epochs")
+        ax2.set_xlabel("Time (ms)")
+        ax2.set_ylabel("Homeostatic Variable (z)")
+        plt.show()
 
         # Testing
         first_element_sequence = [sequence[0]]
@@ -202,8 +199,7 @@ if __name__ == '__main__':
         EI_Network.display_full_normalized_network_connectivity_matrix()
         EI_Network.plot_markov_chain(transition_matrix)
 
-        stim_starts_train = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in
-                             range(len(sequence))]
+        stim_starts_train = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends_train = [start + params['stim_duration'] for start in stim_starts_train]
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)

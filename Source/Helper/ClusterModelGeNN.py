@@ -330,9 +330,10 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 # 0.009
                 synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, self.stdp_params, {'g': self.params['g'], 'z': self.params['z']},
+                                                          symmetric_stdp, self.stdp_params, {'g': self.params['g']},
+                                                          #{'g': self.params['g'], 'z': self.params['z']},
                                                           {},
-                                                          {},
+                                                          {"z": self.params['z']},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
                 #print(f"Creating STDP synapse between {pre.name} and {post.name}")
@@ -494,6 +495,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             self.build_model(Force_rebuild=False)
         self.duration_timesteps = duration_timesteps
         self.runs = runs
+        self.z_trace=np.ones((self.duration_timesteps//10, 2720))
 
     def simulate_one_section(self):
         """
@@ -503,6 +505,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             pass
         else:
             for jj in range(self.duration_timesteps):
+                if jj%10:
+                    first_synapse = self.synapses[0]
+                    first_synapse.pull_var_from_device("g")
+                    first_synapse.pull_var_from_device("z")
+                    #self.g_trace.append(first_synapse.vars["g"].view[:].copy()[0])
+                    #self.z_trace[jj//10] = first_synapse.vars["z"].view[:].copy()
                 self.model.step_time()
 
     def get_spiketimes_section(self, timeZero = 0):
