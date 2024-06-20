@@ -331,7 +331,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                     synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG",
                                                                 delaySteps,
                                                                 pre, post,
-                                                                symmetric_stdp, self.stdp_params,
+                                                                symmetric_stdp, self.params["stdp_params_inner"],
                                                                 {'g': 0},
                                                                 {},
                                                                 {"z": self.params['z']},
@@ -342,7 +342,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                           pre, post,
                                                           symmetric_stdp, self.stdp_params, {'g': self.params['g']},
                                                           {},
-                                                          {"z": 0},
+                                                          {"z": self.params['z']},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
                 #print(f"Creating STDP synapse between {pre.name} and {post.name}")

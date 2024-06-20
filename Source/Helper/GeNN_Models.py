@@ -593,7 +593,7 @@ def define_symmetric_stdp():
         learn_post_code="""
         const scalar dt = $(t) - $(sT_pre);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + ($(eta) * timing) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
+        const scalar newWeight = $(g) - ($(eta) * timing) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         post_spike_code="""
