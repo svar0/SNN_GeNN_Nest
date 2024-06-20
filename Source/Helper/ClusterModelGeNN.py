@@ -327,7 +327,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
-                if  j==i:
+                if j==i:
                     synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG",
                                                                 delaySteps,
                                                                 pre, post,
