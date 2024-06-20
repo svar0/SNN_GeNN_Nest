@@ -480,7 +480,7 @@ def define_Poisson_model():
     )
     return poisson_model
 
-
+# STDP rule
 # def define_symmetric_stdp():
 #     symmetric_stdp = genn_model.create_custom_weight_update_class(
 #         "symmetric_stdp",
@@ -505,65 +505,107 @@ def define_Poisson_model():
 #         is_post_spike_time_required=True
 #     )
 #     return symmetric_stdp
+
 # def define_symmetric_stdp():
-#     symmetric_stdp = genn_model.create_custom_weight_update_class(
+#     wu = genn_model.create_custom_weight_update_class(
 #         "symmetric_stdp",
-#         param_names=["tau", "rho", "eta", "wMin", "wMax", "tau_hom", "lambda_h", "z_star", "lambda_p", "lambda_n", "N"],
-#         var_name_types=[("g", "scalar"), ("z", "scalar")],
-#         sim_code=
-#         """
+#         param_names=["tau", "rho", "eta", "tau_h", "z_star", "lambda_h", "lamda_n", "wMin", "wMax"],
+#         var_name_types=[("g", "scalar")],
+#         post_var_name_types=[("z", "scalar")],
+#         derived_params=[
+#             ("Pz", genn_model.create_dpf_class(lambda pars, dt:
+#                                                np.exp(-dt / pars[0]))()),
+#         ],
+#         sim_code="""
 #         $(addToInSyn, $(g));
 #         const scalar dt = $(t) - $(sT_post);
 #         const scalar timing = exp(-dt / $(tau)) - $(rho);
-#         $(z) = $(z) * exp(-dt / $(tau_hom));
-#         const scalar homeostasis = $(lambda_h) * ($(z_star) - $(z));
-#         const scalar newWeight = 1.*$(g) + ($(lambda_p) * $(eta) * timing) + $(lambda_n)+ homeostasis ;
+#         const scalar newWeight = $(g) + ($(eta) * timing);
 #         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-#
 #         """,
-#         learn_post_code=
-#         """
+#         learn_post_code="""
 #         const scalar dt = $(t) - $(sT_pre);
 #         const scalar timing = fmax(exp(-dt / $(tau)) - $(rho), -0.1*$(rho));
-#         $(z) = $(z) * exp(-dt / $(tau_hom));
-#         $(z) += 1/$(tau_hom);
-#         const scalar homeostasis = $(lambda_h) * ($(z_star) - $(z));
-#         const scalar newWeight = 1.*$(g) + ($(lambda_p) * $(eta) * timing) + homeostasis + $(lambda_n);
+#         const scalar newWeight = $(g) - ($(eta) * timing);
 #         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
 #         """,
+#         post_spike_code="""
+#         $(z) += 1000 / $(tau_h);
+#         """,
+#         post_dynamics_code="""
+#         $(z) *= $(Pz);
+#         """,
 #         is_pre_spike_time_required=True,
-#         is_post_spike_time_required=True
-#     )
-#     return symmetric_stdp
+#         is_post_spike_time_required=True)
+#     return wu
+
+# def define_symmetric_stdp():
+#     wu = genn_model.create_custom_weight_update_class(
+#         "symmetric_stdp",
+#         param_names=["tau", "rho", "eta", "lambda_p", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
+#         var_name_types=[("g", "scalar")],
+#         post_var_name_types=[("z", "scalar")],
+#         derived_params=[
+#             ("Pz", genn_model.create_dpf_class(lambda pars, dt:
+#                                                np.exp(-dt / pars[0]))()),
+#         ],
+#         sim_code="""
+#         $(addToInSyn, $(g));
+#         const scalar dt = $(t) - $(sT_post);
+#         const scalar timing = exp(-dt / $(tau)) - $(rho);
+#         const scalar newWeight = $(g) + ($(lambda_p) * $(eta) * timing);
+#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
+#         """,
+#         learn_post_code="""
+#         const scalar dt = $(t) - $(sT_pre);
+#         const scalar timing = exp(-dt / $(tau)) - $(rho);
+#         const scalar newWeight = $(g) + ($(lambda_p) * $(eta) * timing);
+#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
+#         """,
+#         post_spike_code="""
+#         $(z) += 1000 / $(tau_h);
+#         """,
+#         post_dynamics_code="""
+#         $(z) *= $(Pz);
+#         """,
+#         is_pre_spike_time_required=True,
+#         is_post_spike_time_required=True)
+#     return wu
+
 
 def define_symmetric_stdp():
     wu = genn_model.create_custom_weight_update_class(
-            "homeostatic_wu",
-            param_names=["tau_h", "z_star", "lambda_h", "wMin", "wMax"],
-            var_name_types=[("g", "scalar")],
-            post_var_name_types=[("z", "scalar")],
-            derived_params=[
-                ("Pz", genn_model.create_dpf_class(lambda pars, dt:
-                                                   np.exp(-dt / pars[0]))()),
-            ],
-
-            sim_code="""
-            $(addToInSyn, $(g));
-            """,
-            learn_post_code="""
-
-            const scalar newWeight = $(g) + ($(lambda_h) * ($(z_star)-$(z)));
-            $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-            """,
-            post_spike_code="""
-            $(z) += 1000/$(tau_h);
-            """,
-            post_dynamics_code="""
-            $(z)*=$(Pz);
-            """,
-
-            is_pre_spike_time_required=True,
-            is_post_spike_time_required=True)
+        "symmetric_stdp",
+        param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
+        var_name_types=[("g", "scalar")],
+        post_var_name_types=[("z", "scalar")],
+        derived_params=[
+            ("Pz", genn_model.create_dpf_class(lambda pars, dt:
+                                               np.exp(-dt / pars[0]))()),
+        ],
+        sim_code="""
+        $(addToInSyn, $(g));
+        const scalar dt = $(t) - $(sT_post);
+        const scalar timing = exp(-dt / $(tau)) - $(rho);
+        const scalar newWeight = $(g) + $(eta) * timing;
+        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
+        """,
+        learn_post_code="""
+        const scalar dt = $(t) - $(sT_pre);
+        const scalar timing = exp(-dt / $(tau)) - $(rho);
+        const scalar newWeight = $(g) + ($(eta) * timing) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
+        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
+        """,
+        post_spike_code="""
+        $(z) += 1000 / $(tau_h);
+        """,
+        post_dynamics_code="""
+        $(z) *= $(Pz);
+        """,
+        is_pre_spike_time_required=True,
+        is_post_spike_time_required=True)
     return wu
+
+
 
 

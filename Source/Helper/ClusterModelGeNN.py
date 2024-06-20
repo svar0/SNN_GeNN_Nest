@@ -322,18 +322,27 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
                                                           {"prob": self.params['ps'][0, 0]})
 
+
+
         symmetric_stdp = GeNN_Models.define_symmetric_stdp()
         for i, pre in enumerate(self.Populations[0].get_Populations()):
             for j, post in enumerate(self.Populations[0].get_Populations()):
                 if  j==i:
-                    continue
-                # 0.009
-                synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
+                    synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG",
+                                                                delaySteps,
+                                                                pre, post,
+                                                                symmetric_stdp, self.stdp_params,
+                                                                {'g': 0},
+                                                                {},
+                                                                {"z": self.params['z']},
+                                                                "ExpCurr", psc_E, {}, conn_params_EE
+                                                                )
+                else:
+                    synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
                                                           symmetric_stdp, self.stdp_params, {'g': self.params['g']},
-                                                          #{'g': self.params['g'], 'z': self.params['z']},
                                                           {},
-                                                          {"z": self.params['z']},
+                                                          {"z": 0},
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
                 #print(f"Creating STDP synapse between {pre.name} and {post.name}")

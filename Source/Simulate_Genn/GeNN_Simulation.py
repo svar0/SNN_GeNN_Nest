@@ -54,17 +54,17 @@ if __name__ == '__main__':
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
-              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0.,
-              'Q': 10, 'stim_amp': 0.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
-              'g': 0.00, 'z': 5
+              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
+              'Q': 10, 'stim_amp': 2.0, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.0001, 'z': 5
               }
-    params['simtime'] = 10000  # 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
     jip_ratio = 0.7  # 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 7.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [1.2, 0.7]  # 3,5,Hz        #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [1.2, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -72,18 +72,15 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # STDP and Homeostasis parameters
-    stdp_params = {#"tau": 20.0,
-            #"rho": 0.01,
-            #"eta": 0.0,
+    stdp_params = {"tau": 2000.0,
+            "rho": 0.0001,
+            "eta": 0.0001,
             "wMin": -10.0,
             "wMax": 10.0,
             "tau_h": 5000,
-            #"tau_hom": 1000.0,
-            "lambda_h": 5e-3,
-            #"lambda_p": 0.0,
-            #"lambda_n": 0.,
-            #"N": 10.0,
-            "z_star": 10.}
+            "lambda_h": 0.0004,
+            "lambda_n": 0.0014,
+            "z_star": 10.0}
 
     timeout = 18000  # 5h
     if MatrixType >= 1:
@@ -127,8 +124,11 @@ if __name__ == '__main__':
         info = EI_Network.get_simulation()
         print(info)
 
+        for ii in range(20):
+            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+
         # Training
-        num_epochs_train = 3
+        num_epochs_train = 20
 
         g_trace = []
         z_trace = []
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         params['stim_amp'] = 0
         last_epoch_spikes_test = None
 
-        num_epochs_test = 1
+        num_epochs_test = 2
 
         for epoch in range(num_epochs_test):
             for ii, pop in enumerate(EI_Network.current_source):
