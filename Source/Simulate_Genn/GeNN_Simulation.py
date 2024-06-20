@@ -55,8 +55,8 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 2., 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
-              'g': 0.001, 'z': 5
+              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.0, 'z': 5
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
@@ -72,15 +72,26 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # STDP and Homeostasis parameters
-    stdp_params = {"tau": 2000.0,
-            "rho": 0.0001,
-            "eta": 0.0001,
+    stdp_params = {"tau": 5.0,
+            "rho": 0.001,
+            "eta": 0.01,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 5000,
-            "lambda_h": 0.0004,
-            "lambda_n": 0.0014,
-            "z_star": 10.0}
+            "lambda_h": 0.000,
+            "lambda_n": 0.0004,
+            "z_star": 5}
+
+    stdp_params_inner = {"tau": 2000.0,
+                   "rho": 0.0,
+                   "eta": 0.0,
+                   "wMin": -5.0,
+                   "wMax": 5.0,
+                   "tau_h": 5000,
+                   "lambda_h": 0.00004,
+                   "lambda_n": 0.00,
+                   "z_star": 5}
+    params["stdp_params_inner"] = stdp_params_inner
 
     timeout = 18000  # 5h
     if MatrixType >= 1:
@@ -124,8 +135,8 @@ if __name__ == '__main__':
         info = EI_Network.get_simulation()
         print(info)
 
-        # for ii in range(20):
-        #     spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+        for ii in range(50):
+            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
         # Training
         num_epochs_train = 20
@@ -169,6 +180,9 @@ if __name__ == '__main__':
         ax2.set_xlabel("Time (ms)")
         ax2.set_ylabel("Homeostatic Variable (z)")
         plt.show()
+
+        for ii in range(50):
+            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
         # Testing
         first_element_sequence = [sequence[0]]
