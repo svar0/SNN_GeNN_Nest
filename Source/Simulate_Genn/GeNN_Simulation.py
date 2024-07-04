@@ -55,7 +55,7 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'Q': 10, 'stim_amp': 1., 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
               'g': 0.0, 'z': 5, "attention": 1.0,
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
@@ -89,7 +89,7 @@ if __name__ == '__main__':
                    "wMin": -5.0,
                    "wMax": 5.0,
                    "tau_h": 5000,
-                   "lambda_h": 0.0000,
+                   "lambda_h": 0.001,
                    "lambda_n": 0.00,
                    "z_star": 5,
                    "attention": 1.0}
@@ -151,6 +151,13 @@ if __name__ == '__main__':
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
                 pop.extra_global_params['t_offset'].view[:] = stim_ends[ii] + EI_Network.model.t
                 pop.extra_global_params['strength'].view[:] = params['stim_amp']
+
+            # Attention
+            for t in range(params['simtime']):
+                overlapping = any(start <= t <= end for start, end in zip(stim_starts, stim_ends))
+                attention = 1.0 if overlapping else 0.0
+                for synapse in EI_Network.synapses:
+                    synapse.vars["g"].view[:] = attention
             print(f"Running simulation for epoch {epoch + 1} (Training)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
