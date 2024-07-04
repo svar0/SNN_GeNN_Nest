@@ -72,14 +72,14 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
-    stdp_params = {"tau": 3.0,
+    stdp_params = {"tau": 10.0,
             "rho": 0.001,
-            "eta": 0.1,
+            "eta": 0.05,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 5000,
             "lambda_h": 0.0000,
-            "lambda_n": 0.001,
+            "lambda_n": 0.0005,
             "z_star": 5,
             "attention": 1.0}
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                    "wMax": 5.0,
                    "tau_h": 5000,
                    "lambda_h": 0.001,
-                   "lambda_n": 0.001,
+                   "lambda_n": 0.0005,
                    "z_star": 5,
                    "attention": 1.0}
     params["stdp_params_inner"] = stdp_params_inner
