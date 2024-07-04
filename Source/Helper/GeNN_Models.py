@@ -576,7 +576,7 @@ def define_Poisson_model():
 def define_symmetric_stdp():
     wu = genn_model.create_custom_weight_update_class(
         "symmetric_stdp",
-        param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
+        param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax", "attention"],
         var_name_types=[("g", "scalar")],
         post_var_name_types=[("z", "scalar")],
         derived_params=[
@@ -587,13 +587,15 @@ def define_symmetric_stdp():
         $(addToInSyn, $(g));
         const scalar dt = $(t) - $(sT_post);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + $(eta) * timing;
+        const scalar newWeight = $(g) + $(attention) * $(eta) * timing;
+        //const scalar newWeight = $(g) + $(eta) * timing;
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         learn_post_code="""
         const scalar dt = $(t) - $(sT_pre);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
         const scalar newWeight = $(g) - ($(eta) * timing) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
+        //const scalar newWeight = $(g) - ($(attention) * $(eta) * timing) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         post_spike_code="""

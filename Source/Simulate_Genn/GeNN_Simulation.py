@@ -55,8 +55,8 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
-              'g': 0.0, 'z': 5
+              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'g': 0.0, 'z': 5, "attention": 1.0,
               }
     params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
 
@@ -64,23 +64,24 @@ if __name__ == '__main__':
     jep = 7.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [1.2, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
     params['I_th_E'] = I_ths[0]
     params['I_th_I'] = I_ths[1]
 
-    # STDP and Homeostasis parameters
-    stdp_params = {"tau": 5.0,
+    # Learing rule (STDP, Homeostasis and Depression Term parameters)
+    stdp_params = {"tau": 3.0,
             "rho": 0.001,
-            "eta": 0.01,
+            "eta": 0.1,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 5000,
-            "lambda_h": 0.000,
-            "lambda_n": 0.0004,
-            "z_star": 5}
+            "lambda_h": 0.0000,
+            "lambda_n": 0.000,
+            "z_star": 5,
+            "attention": 1.0}
 
     stdp_params_inner = {"tau": 2000.0,
                    "rho": 0.0,
@@ -88,9 +89,10 @@ if __name__ == '__main__':
                    "wMin": -5.0,
                    "wMax": 5.0,
                    "tau_h": 5000,
-                   "lambda_h": 0.00004,
+                   "lambda_h": 0.0000,
                    "lambda_n": 0.00,
-                   "z_star": 5}
+                   "z_star": 5,
+                   "attention": 1.0}
     params["stdp_params_inner"] = stdp_params_inner
 
     timeout = 18000  # 5h
@@ -190,7 +192,6 @@ if __name__ == '__main__':
         stim_ends_test = [params['warmup'] + params['stim_duration']]
         params['stim_starts'] = stim_starts_test
         params['stim_ends'] = stim_ends_test
-        params['stim_amp'] = 0
         last_epoch_spikes_test = None
 
         num_epochs_test = 2
