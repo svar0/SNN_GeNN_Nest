@@ -200,7 +200,6 @@ if __name__ == '__main__':
         first_element_sequence = [sequence[0]]
         stim_starts_test = [params['warmup']]
         stim_ends_test = [params['warmup'] + params['stim_duration']]
-        attention_starts_test = [start - 10 for start in stim_starts_test]
         params['stim_starts'] = stim_starts_test
         params['stim_ends'] = stim_ends_test
         last_epoch_spikes_test = None
@@ -213,14 +212,6 @@ if __name__ == '__main__':
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
                     pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
                     pop.extra_global_params['strength'].view[:] = params['stim_amp']
-
-            # Attention
-            for t in range(params['simtime']):
-                overlapping = any(start <= t <= end for start, end in zip(attention_starts_test, stim_ends_test))
-                attention = 1.0 if overlapping else 0.0
-                for synapse in EI_Network.synapses:
-                    synapse.vars["g"].view[:] = attention
-
             print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
