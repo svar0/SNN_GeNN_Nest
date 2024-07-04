@@ -54,11 +54,11 @@ if __name__ == '__main__':
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
-              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 1., 'stim_duration': 160, 'inter_stim_delay': -50.0, 'no_stim': 0,
+              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 10,
+              'Q': 10, 'stim_amp': 1., 'stim_duration': 160, 'inter_stim_delay': 20.0, 'no_stim': 0,
               'g': 0.0, 'z': 5, "attention": 1.0,
               }
-    params['simtime'] = 360  # 2 * FactorTime * baseline['simtime']
+    params['simtime'] = 450  # Increase simulation time to better observe transitions
 
     jip_ratio = 0.7  # 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 7.8  # 2.8  #7 # clustering strength
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     params['I_th_E'] = I_ths[0]
     params['I_th_I'] = I_ths[1]
 
-    # Learing rule (STDP, Homeostasis and Depression Term parameters)
+    # Learning rule (STDP, Homeostasis and Depression Term parameters)
     stdp_params = {"tau": 3.0,
             "rho": 0.001,
             "eta": 0.1,
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             "wMax": 5.0,
             "tau_h": 5000,
             "lambda_h": 0.0000,
-            "lambda_n": 0.000,
+            "lambda_n": 0.001,
             "z_star": 5,
             "attention": 1.0}
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                    "wMax": 5.0,
                    "tau_h": 5000,
                    "lambda_h": 0.001,
-                   "lambda_n": 0.00,
+                   "lambda_n": 0.001,
                    "z_star": 5,
                    "attention": 1.0}
     params["stdp_params_inner"] = stdp_params_inner
@@ -118,6 +118,7 @@ if __name__ == '__main__':
 
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
+        attention_starts = [start - 10 for start in stim_starts]
         params['stim_starts'] = stim_starts
         params['stim_ends'] = stim_ends
 
@@ -154,10 +155,11 @@ if __name__ == '__main__':
 
             # Attention
             for t in range(params['simtime']):
-                overlapping = any(start <= t <= end for start, end in zip(stim_starts, stim_ends))
+                overlapping = any(start <= t <= end for start, end in zip(attention_starts, stim_ends))
                 attention = 1.0 if overlapping else 0.0
                 for synapse in EI_Network.synapses:
                     synapse.vars["g"].view[:] = attention
+
             print(f"Running simulation for epoch {epoch + 1} (Training)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
@@ -197,6 +199,7 @@ if __name__ == '__main__':
         first_element_sequence = [sequence[0]]
         stim_starts_test = [params['warmup']]
         stim_ends_test = [params['warmup'] + params['stim_duration']]
+        attention_starts_test = [start - 10 for start in stim_starts_test]
         params['stim_starts'] = stim_starts_test
         params['stim_ends'] = stim_ends_test
         last_epoch_spikes_test = None
@@ -209,6 +212,14 @@ if __name__ == '__main__':
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
                     pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
                     pop.extra_global_params['strength'].view[:] = params['stim_amp']
+
+            # Attention
+            for t in range(params['simtime']):
+                overlapping = any(start <= t <= end for start, end in zip(attention_starts_test, stim_ends_test))
+                attention = 1.0 if overlapping else 0.0
+                for synapse in EI_Network.synapses:
+                    synapse.vars["g"].view[:] = attention
+
             print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
