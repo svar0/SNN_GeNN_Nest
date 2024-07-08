@@ -50,21 +50,21 @@ if __name__ == '__main__':
 
     startTime = time.time()
     baseline = {'N_E': 80, 'N_I': 20,  # number of E/I neurons -> typical 4:1
-                'simtime': 480, 'warmup': 0}
+                'simtime': 360, 'warmup': 0}
 
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
-              'neuron_type': 'iaf_psc_exp', 'simtime': 480, 'delta_I_xE': 0.,
-              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 15,
+              'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
+              'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
               'Q': 10, 'stim_amp': 1.5, 'stim_duration': 150, 'inter_stim_delay': 30.0, 'no_stim': 0,
-              'g': 0.0, 'z': 5, "attention": 1.0,
+              'g': 0.0, 'z': 5
               }
-    params['simtime'] = 480
+    params['simtime'] = 540
 
-    jip_ratio = 0.7  # 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
-    jep = 2.8 #7.8  # 2.8  #7 # clustering strength
+    jip_ratio = 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jep = 7 #5.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [10, 5]#[1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -72,18 +72,17 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
-    stdp_params = {"tau": 10.0,
+    stdp_params = {"tau": 1000.0,
             "rho": 0.001,
-            "eta": 0.005,
+            "eta": 0.05,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 0.,
-            "lambda_h": 0.0000,
-            "lambda_n": 0.0005,
-            "z_star": 5,
-            "attention": 1.0}
+            "lambda_h": 0.0,
+            "lambda_n": 0.000,
+            "z_star": 5}
 
-    stdp_params_inner = {"tau": 2000.0,
+    stdp_params_inner = {"tau": 1000.0,
                    "rho": 0.0,
                    "eta": 0.0,
                    "wMin": -5.0,
@@ -91,8 +90,7 @@ if __name__ == '__main__':
                    "tau_h": 5000,
                    "lambda_h": 0.001,
                    "lambda_n": 0.0005,
-                   "z_star": 5,
-                   "attention": 1.0}
+                   "z_star": 5}
 
     params["stdp_params_inner"] = stdp_params_inner
 
@@ -153,13 +151,6 @@ if __name__ == '__main__':
                 pop.extra_global_params['t_onset'].view[:] = stim_starts[ii] + EI_Network.model.t
                 pop.extra_global_params['t_offset'].view[:] = stim_ends[ii] + EI_Network.model.t
                 pop.extra_global_params['strength'].view[:] = params['stim_amp']
-
-            # Attention
-            for t in range(params['simtime']):
-                overlapping = any(start <= t <= end for start, end in zip(attention_starts, stim_ends))
-                attention = 1.0 if overlapping else 0.0
-                for synapse in EI_Network.synapses:
-                    synapse.vars["g"].view[:] = attention
 
             print(f"Running simulation for epoch {epoch + 1} (Training)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
