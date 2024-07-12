@@ -332,17 +332,26 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                                 delaySteps,
                                                                 pre, post,
                                                                 symmetric_stdp, self.params["stdp_params_inner"],
-                                                                {'g': 0},
+                                                                {'g': 0,
+
+                                                                },
                                                                 {},
-                                                                {"z": self.params['z']},
+                                                                {"z": self.params['z'],
+                                                                 'attention': 1
+                                                                 },
                                                                 "ExpCurr", psc_E, {}, conn_params_EE
                                                                 )
                 else:
                     synapse = self.model.add_synapse_population(str(i) + "STDP" + str(j), "SPARSE_INDIVIDUALG", delaySteps,
                                                           pre, post,
-                                                          symmetric_stdp, self.stdp_params, {'g': self.params['g']},
+                                                          symmetric_stdp, self.stdp_params,
+                                                          {'g': self.params['g'],
+
+                                                          },
                                                           {},
-                                                          {"z": self.params['z']},
+                                                          {"z": self.params['z'],
+                                                           'attention': 1
+                                                          },
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
                 #print(f"Creating STDP synapse between {pre.name} and {post.name}")
@@ -350,7 +359,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 self.synapse_ref[synapse] = (pre, post)
                 self.synapse_populations.append(synapse)
                 synapse.weight_recording_enabled = True
-
     def create_stimulation(self, sequence):
         cluster_stimulus = GeNN_Models.define_ClusterStim()
 
@@ -378,11 +386,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                 self.current_source.append(current_source)
                 print(f"Stimulating cluster {cluster_index} ({cluster_index}) from {stim_starts[ii]} to {stim_ends[ii]}")
 
-    def train_network(self, sequence, num_epochs):
-        for epoch in range(num_epochs):
-            print(f"Epoch {epoch + 1}/{num_epochs}")
-            self.create_stimulation(sequence)
-            self.simulate_and_get_recordings()
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
         self.connectivity_matrices = {}
@@ -514,7 +517,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             pass
         else:
             for jj in range(self.duration_timesteps):
-                if jj%10:
+                if jj % 10:
                     first_synapse = self.synapses[0]
                     first_synapse.pull_var_from_device("g")
                     first_synapse.pull_var_from_device("z")
@@ -608,6 +611,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
 
         return rates
 
+    def update_firing_prob(self):
+        rates = self.get_firing_rates()
+        log_firing_prob = np.log(np.mean([rate[0] for rate in rates]) + 1e-9)
+        for synapse in self.synapses:
+            synapse.extra_global_params['log_firing_prob'].view[:] = log_firing_prob
+        return log_firing_prob
     def get_populations(self):
         return self.Populations[0], self.Populations[1]
 
