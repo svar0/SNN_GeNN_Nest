@@ -55,16 +55,17 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 150, 'inter_stim_delay': 30.0, 'no_stim': 0,
-              'g': 0.0, 'z': 5,
+              'Q': 10, 'stim_amp': 3.5, 'stim_duration': 150, 'inter_stim_delay': 30.0, 'no_stim': 0,
+              'g': 0.0, 'z': 5
+
               }
     params['simtime'] = 540
 
-    jip_ratio = 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jip_ratio = 0.7  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 5.8 #5.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [6.34, 2.61]#[1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [2.8, 1.24]#[1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -73,15 +74,15 @@ if __name__ == '__main__':
 
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
     stdp_params = {"tau": 1000.0,
-            "rho": 0.001,
-            "eta": 0.05,
+            "rho": 0.01,
+            "eta": 0.005,
             "wMin": -5.0,
             "wMax": 5.0,
-            "tau_h": 0.,
+            "tau_h": 0.0,
             "lambda_h": 0.0,
             "lambda_n": 0.000,
             "z_star": 5,
-            "log_firing_prob": 0.1}
+                   }
 
     stdp_params_inner = {"tau": 1000.0,
                    "rho": 0.0,
@@ -92,7 +93,7 @@ if __name__ == '__main__':
                    "lambda_h": 0.001,
                    "lambda_n": 0.0005,
                    "z_star": 5,
-                   "log_firing_prob": 0.1}
+                         }
 
     params["stdp_params_inner"] = stdp_params_inner
 
@@ -119,7 +120,6 @@ if __name__ == '__main__':
 
         stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
-        attention_starts = [start - 10 for start in stim_starts]
         params['stim_starts'] = stim_starts
         params['stim_ends'] = stim_ends
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         # EI_Network.setup_network()
         # EI_Network.build_model()
         # EI_Network.load_model()
-        info = EI_Network.get_simulation()
+        info = EI_Network.get_simulation(GPUspecificConstraint=10e18)
         print(info)
 
         for ii in range(50):
@@ -147,6 +147,9 @@ if __name__ == '__main__':
 
         g_trace = []
         z_trace = []
+        attention_trace = []
+        section_length = 100
+        num_sections = int(params['simtime']/ 0.1 / section_length)
 
         for epoch in range(num_epochs_train):
             for ii, pop in enumerate(EI_Network.current_source):
@@ -155,7 +158,25 @@ if __name__ == '__main__':
                 pop.extra_global_params['strength'].view[:] = params['stim_amp']
 
             print(f"Running simulation for epoch {epoch + 1} (Training)")
-            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+
+            current_time = EI_Network.model.t
+            trial_time = lambda: EI_Network.model.t - current_time
+            EI_Network.duration_timesteps=section_length
+            EI_Network.runs = num_sections
+            for section in range(num_sections):
+                EI_Network.simulate_one_section()
+
+                for synapse in EI_Network.synapses:
+                    attention_value = 0.0
+                    for synapse in EI_Network.synapses:
+                        if any(trial_time() >= end and trial_time() < end + params['inter_stim_delay'] for end in stim_ends):
+                            synapse.vars["attention"].view[:] = 1.0
+                        else:
+                            synapse.vars["attention"].view[:] = 0.0
+                    #print("Trial Time: " + str(trial_time()) + ": " + str(synapse.vars["attention"].view[0]))
+                    attention_values = synapse.vars["attention"].view[:].copy()
+
+            spikes = EI_Network.get_spiketimes_section(timeZero=current_time)
 
             if epoch == 0:
                 first_epoch_spikes_train = spikes
@@ -186,8 +207,17 @@ if __name__ == '__main__':
         ax2.set_ylabel("Homeostatic Variable (z)")
         plt.show()
 
-        for ii in range(50):
-            spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+        fig3, ax3 = plt.subplots(figsize=(10, 5))
+        for stim_start, stim_end in zip(stim_starts, stim_ends):
+            ax3.axvspan(stim_start, stim_end, color='green', alpha=0.3, label='stimuli')
+        for stim_start in stim_starts:
+            ax3.axvspan(stim_start + params['stim_duration'],
+                        stim_start + params['stim_duration'] + params['inter_stim_delay'], color='red', alpha=0.3, label='attention')
+        ax3.set_title("Stimuli and Attention")
+        ax3.set_xlabel("Time (ms)")
+        ax3.set_ylabel("Stimuli / Attention")
+        ax3.legend()
+        plt.show()
 
         # Testing
         first_element_sequence = [sequence[0]]

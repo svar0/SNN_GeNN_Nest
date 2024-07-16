@@ -333,11 +333,11 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                                 pre, post,
                                                                 symmetric_stdp, self.params["stdp_params_inner"],
                                                                 {'g': 0,
-
-                                                                },
+                                                                 'attention': 1,
+                                                                 #'log_firing_prob': 0.1
+                                                                 },
                                                                 {},
                                                                 {"z": self.params['z'],
-                                                                 'attention': 1
                                                                  },
                                                                 "ExpCurr", psc_E, {}, conn_params_EE
                                                                 )
@@ -346,11 +346,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                           pre, post,
                                                           symmetric_stdp, self.stdp_params,
                                                           {'g': self.params['g'],
-
+                                                           'attention': 1,
+                                                           #'log_firing_prob': 0.1
                                                           },
                                                           {},
                                                           {"z": self.params['z'],
-                                                           'attention': 1
+
                                                           },
                                                           "ExpCurr", psc_E, {}, conn_params_EE
                                                           )
@@ -516,13 +517,19 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         if self.duration_timesteps == 0:
             pass
         else:
+            # for jj in range(self.duration_timesteps):
+            #     if jj % 10:
+            #         first_synapse = self.synapses[0]
+            #         first_synapse.pull_var_from_device("g")
+            #         first_synapse.pull_var_from_device("z")
+            #         #self.g_trace.append(first_synapse.vars["g"].view[:].copy()[0])
+            #         #self.z_trace[jj//10] = first_synapse.vars["z"].view[:].copy()
             for jj in range(self.duration_timesteps):
-                if jj % 10:
-                    first_synapse = self.synapses[0]
-                    first_synapse.pull_var_from_device("g")
-                    first_synapse.pull_var_from_device("z")
-                    #self.g_trace.append(first_synapse.vars["g"].view[:].copy()[0])
-                    #self.z_trace[jj//10] = first_synapse.vars["z"].view[:].copy()
+                if jj % 1000 == 0:
+                    for synapse in self.synapses:
+                        synapse.pull_var_from_device("g")
+                        synapse.pull_var_from_device("z")
+                        synapse.pull_var_from_device("attention")
                 self.model.step_time()
 
     def get_spiketimes_section(self, timeZero = 0):
