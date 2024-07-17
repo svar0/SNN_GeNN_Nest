@@ -55,17 +55,17 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 3.5, 'stim_duration': 150, 'inter_stim_delay': 30.0, 'no_stim': 0,
+              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 3.5,
               'g': 0.0, 'z': 5
 
               }
-    params['simtime'] = 540
+    params['simtime'] = 350
 
-    jip_ratio = 0.7  # 0.7 default value  #works with 0.95 and gif wo adaptation
-    jep = 5.8 #5.8  # 2.8  #7 # clustering strength
+    jip_ratio = 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jep = 3.8 #5.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [2.8, 1.24]#[1.8, 0.7]  # 3,5,Hz   [76.639375])     #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [0.8, 0.3]#[1.8, 0.7] #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
     stdp_params = {"tau": 1000.0,
             "rho": 0.01,
-            "eta": 0.005,
+            "eta": 0.05,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 0.0,
@@ -89,9 +89,9 @@ if __name__ == '__main__':
                    "eta": 0.0,
                    "wMin": -5.0,
                    "wMax": 5.0,
-                   "tau_h": 5000,
+                   "tau_h": 1000,
                    "lambda_h": 0.001,
-                   "lambda_n": 0.0005,
+                   "lambda_n": 0.05,
                    "z_star": 5,
                          }
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         print(f"States after {steps} steps: {states}")
         sequence = states
 
-        stim_starts = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
+        stim_starts = [i * (params['stim_duration'] - params['inter_stim_delay']) for i in range(len(sequence))]
         stim_ends = [start + params['stim_duration'] for start in stim_starts]
         params['stim_starts'] = stim_starts
         params['stim_ends'] = stim_ends
@@ -161,20 +161,26 @@ if __name__ == '__main__':
 
             current_time = EI_Network.model.t
             trial_time = lambda: EI_Network.model.t - current_time
-            EI_Network.duration_timesteps=section_length
+            EI_Network.duration_timesteps = section_length
             EI_Network.runs = num_sections
             for section in range(num_sections):
                 EI_Network.simulate_one_section()
 
                 for synapse in EI_Network.synapses:
                     attention_value = 0.0
-                    for synapse in EI_Network.synapses:
-                        if any(trial_time() >= end and trial_time() < end + params['inter_stim_delay'] for end in stim_ends):
-                            synapse.vars["attention"].view[:] = 1.0
-                        else:
-                            synapse.vars["attention"].view[:] = 0.0
-                    #print("Trial Time: " + str(trial_time()) + ": " + str(synapse.vars["attention"].view[0]))
+                    synapse.vars["attention"].view[:] = 0.0
+
+                    for stim_start, stim_end in zip(stim_starts, stim_ends):
+                        overlap_start = stim_start + params['stim_duration'] - params['inter_stim_delay']
+                        overlap_end = stim_start + params['stim_duration']
+                        if overlap_start <= trial_time() < overlap_end:
+                            attention_value = 1.0
+                            #print(f"Overlap detected from {overlap_start} to {overlap_end} at trial time {trial_time()}")
+                            break
+                    synapse.vars["attention"].view[:] = attention_value
+                    #print(f"Attention is {attention_value}, trial time {trial_time()}")
                     attention_values = synapse.vars["attention"].view[:].copy()
+                    attention_trace.append(attention_values)
 
             spikes = EI_Network.get_spiketimes_section(timeZero=current_time)
 
@@ -212,7 +218,7 @@ if __name__ == '__main__':
             ax3.axvspan(stim_start, stim_end, color='green', alpha=0.3, label='stimuli')
         for stim_start in stim_starts:
             ax3.axvspan(stim_start + params['stim_duration'],
-                        stim_start + params['stim_duration'] + params['inter_stim_delay'], color='red', alpha=0.3, label='attention')
+                        stim_start + params['stim_duration'] - params['inter_stim_delay'], color='red', alpha=0.3, label='attention')
         ax3.set_title("Stimuli and Attention")
         ax3.set_xlabel("Time (ms)")
         ax3.set_ylabel("Stimuli / Attention")
@@ -234,7 +240,7 @@ if __name__ == '__main__':
                 if ii == first_element_sequence[0]:
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
                     pop.extra_global_params['t_offset'].view[:] = stim_ends_test[0] + EI_Network.model.t
-                    pop.extra_global_params['strength'].view[:] = params['stim_amp']
+                    pop.extra_global_params['strength'].view[:] = params['stim_amp_test']
             print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
@@ -247,8 +253,8 @@ if __name__ == '__main__':
         EI_Network.display_full_normalized_network_connectivity_matrix()
         EI_Network.plot_markov_chain(transition_matrix)
 
-        stim_starts_train = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
-        stim_ends_train = [start + params['stim_duration'] for start in stim_starts_train]
+        # stim_starts_train = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
+        # stim_ends_train = [start + params['stim_duration'] for start in stim_starts_train]
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)
         EI_Network.plot_spikes(last_epoch_spikes_train, "Spiketimes for Sequence: (Last Epoch of Training)", stim_starts, stim_ends, sequence)

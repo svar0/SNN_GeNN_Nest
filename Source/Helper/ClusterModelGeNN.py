@@ -366,11 +366,12 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
         stim_starts = []
         stim_ends = []
         current_start = self.params['warmup']
+        strength = self.params['stim_amp']
 
         for idx, _ in enumerate(sequence):
             stim_starts.append(current_start)
             stim_ends.append(current_start + self.params['stim_duration'])
-            current_start += self.params['stim_duration'] + self.params['inter_stim_delay']
+            current_start += self.params['stim_duration'] - self.params['inter_stim_delay']
 
         for ii, cluster_index in enumerate(sequence):
             if cluster_index < len(self.Populations[0].get_Populations()):
@@ -385,7 +386,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                     {}
                 )
                 self.current_source.append(current_source)
-                print(f"Stimulating cluster {cluster_index} ({cluster_index}) from {stim_starts[ii]} to {stim_ends[ii]}")
+                print(f"Stimulating cluster ({cluster_index}) from {stim_starts[ii]} to {stim_ends[ii]} with strenght {strength}")
 
     def make_synapse_matrices(self):
         self.synapse_matrices = {}
