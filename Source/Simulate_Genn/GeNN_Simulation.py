@@ -55,17 +55,16 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 3.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 3.5,
+              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 1.5,
               'g': 0.0, 'z': 5
-
               }
     params['simtime'] = 350
 
-    jip_ratio = 0.75  # 0.7 default value  #works with 0.95 and gif wo adaptation
-    jep = 5.8 #5.8  # 2.8  #7 # clustering strength
+    jip_ratio = 0.7  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jep = 6.5 #5.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [0.8, 0.6] #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [0.8, 0.7] #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -73,14 +72,14 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
-    stdp_params = {"tau": 50.0,
+    stdp_params = {"tau": 20.0,
             "rho": 0.001,
             "eta": 0.03,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 1.0,
             "lambda_h": 0.0,
-            "lambda_n": 0.0,
+            "lambda_n": 0.002,
             "z_star": 5,
                    }
 
@@ -91,7 +90,7 @@ if __name__ == '__main__':
                    "wMax": 5.0,
                    "tau_h": 500.0,
                    "lambda_h": 0.0,
-                   "lambda_n": 0.00,
+                   "lambda_n": 0.0,
                    "z_star": 5,
                          }
 
@@ -141,15 +140,8 @@ if __name__ == '__main__':
 
         for ii in range(50):
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
-
-        EI_Network.make_synapse_matrices()
-        EI_Network.create_full_network_connectivity_matrix()
-        EI_Network.display_full_network_connectivity_matrix()
-        EI_Network.display_full_normalized_network_connectivity_matrix()
-        EI_Network.plot_markov_chain(transition_matrix)
-
         # Training
-        num_epochs_train = 20
+        num_epochs_train = 5
 
         g_trace = []
         z_trace = []

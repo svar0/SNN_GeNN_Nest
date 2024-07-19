@@ -458,74 +458,6 @@ def define_Poisson_model():
         threshold_condition_code="$(timeStepToSpike) <= 0.0"
     )
     return poisson_model
-
-# def define_symmetric_stdp():
-#     wu = genn_model.create_custom_weight_update_class(
-#         "symmetric_stdp",
-#         param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
-#         var_name_types=[("g", "scalar"), ("attention", "scalar")],
-#         post_var_name_types=[("z", "scalar")],
-#         derived_params=[
-#             ("Pz", genn_model.create_dpf_class(lambda pars, dt: np.exp(-dt / pars[0]))()),
-#         ],
-#         sim_code="""
-#         $(addToInSyn, $(g));
-#         const scalar dt = $(t) - $(sT_post);
-#         const scalar timing = exp(-dt / $(tau)) - $(rho);
-#         const scalar newWeight = $(g) + $(eta) * timing * $(attention);
-#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-#         """,
-#         learn_post_code="""
-#         const scalar dt = $(t) - $(sT_pre);
-#         const scalar timing = exp(-dt / $(tau)) - $(rho);
-#         const scalar newWeight = $(g) + ($(eta) * timing * $(attention)) + ($(lambda_h) * ($(z_star)-$(z))) - $(lambda_n);
-#         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-#         """,
-#         post_spike_code="""
-#         $(z) += 1000 / $(tau_h);
-#         """,
-#         post_dynamics_code="""
-#         $(z) *= $(Pz);
-#         """,
-#         is_pre_spike_time_required=True,
-#         is_post_spike_time_required=True)
-#     return wu
-def define_symmetric2_stdp():
-    wu = genn_model.create_custom_weight_update_class(
-        "symmetric_stdp",
-        param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
-        var_name_types=[("g", "scalar"), ("attention", "scalar")],
-        post_var_name_types=[("z", "scalar")],
-        derived_params=[
-            ("Pz", genn_model.create_dpf_class(lambda pars, dt:
-                                               np.exp(
-                                                   -dt / (pars[4])))()),
-        ],
-
-        sim_code="""
-        $(addToInSyn, $(g));
-        const scalar dt = $(t) - $(sT_post);
-        const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g)- $(eta) * timing* $(attention);
-        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-        """,
-        learn_post_code="""
-        const scalar dt = $(t) - $(sT_pre);
-        const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + $(eta) * timing * $(attention)  + ($(lambda_h) * ($(z_star)-$(z)));
-        $(g) = fmin($(wMax), fmax($(wMin), newWeight));
-        """,
-        post_spike_code="""
-        $(z) += 1000/$(tau_h);
-        """,
-        post_dynamics_code="""
-        $(z)*=$(Pz);
-        """,
-        is_pre_spike_time_required=True,
-        is_post_spike_time_required=True)
-    return wu
-
-
 def define_symmetric_stdp():
     wu = genn_model.create_custom_weight_update_class(
         "symmetric_stdp",
@@ -548,7 +480,7 @@ def define_symmetric_stdp():
         learn_post_code="""
         const scalar dt = $(t) - $(sT_pre);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + $(eta) * timing * $(attention)  + ($(lambda_h) * ($(z_star)-$(z)));
+        const scalar newWeight = $(g) + $(eta) * timing * $(attention)  + ($(lambda_h) * ($(z_star)-$(z)))- $(lambda_n);
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         post_spike_code="""
