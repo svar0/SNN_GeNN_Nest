@@ -75,23 +75,23 @@ if __name__ == '__main__':
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
     stdp_params = {"tau": 50.0,
             "rho": 0.001,
-            "eta": 0.003,
+            "eta": 0.03,
             "wMin": -5.0,
             "wMax": 5.0,
-            "tau_h": 0.0,
+            "tau_h": 1.0,
             "lambda_h": 0.0,
             "lambda_n": 0.0,
             "z_star": 5,
                    }
 
-    stdp_params_inner = {"tau": 0.0,
+    stdp_params_inner = {"tau": 10.0,
                    "rho": 0.0,
                    "eta": 0.0,
                    "wMin": -5.0,
                    "wMax": 5.0,
-                   "tau_h": 50.0,
-                   "lambda_h": 0.001,
-                   "lambda_n": 0.01,
+                   "tau_h": 500.0,
+                   "lambda_h": 0.0,
+                   "lambda_n": 0.00,
                    "z_star": 5,
                          }
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         # EI_Network.setup_network()
         # EI_Network.build_model()
         # EI_Network.load_model()
-        info = EI_Network.get_simulation(GPUspecificConstraint=10e28)
+        info = EI_Network.get_simulation(GPUspecificConstraint=10e18)
         print(info)
 
         for ii in range(50):
@@ -189,7 +189,6 @@ if __name__ == '__main__':
                     attention_trace.append(attention_values)
 
             spikes = EI_Network.get_spiketimes_section(timeZero=current_time)
-            #spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
             if epoch == 0:
                 first_epoch_spikes_train = spikes
@@ -260,8 +259,6 @@ if __name__ == '__main__':
         EI_Network.display_full_normalized_network_connectivity_matrix()
         EI_Network.plot_markov_chain(transition_matrix)
 
-        # stim_starts_train = [params['warmup'] + i * (params['stim_duration'] + params['inter_stim_delay']) for i in range(len(sequence))]
-        # stim_ends_train = [start + params['stim_duration'] for start in stim_starts_train]
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)
         EI_Network.plot_spikes(last_epoch_spikes_train, "Spiketimes for Sequence: (Last Epoch of Training)", stim_starts, stim_ends, sequence)
