@@ -55,17 +55,17 @@ if __name__ == '__main__':
     params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
               'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 2.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 3.5,
+              'Q': 10, 'stim_amp': 3.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 3.5,
               'g': 0.0, 'z': 5
 
               }
     params['simtime'] = 350
 
-    jip_ratio = 0.95  # 0.7 default value  #works with 0.95 and gif wo adaptation
-    jep = 3.8 #5.8  # 2.8  #7 # clustering strength
+    jip_ratio = 0.75  # 0.7 default value  #works with 0.95 and gif wo adaptation
+    jep = 5.8 #5.8  # 2.8  #7 # clustering strength
     jip = 1. + (jep - 1) * jip_ratio
     params['jplus'] = np.array([[jep, jip], [jip, jip]])
-    I_ths = [0.8, 0.3]#[1.8, 0.7] #background stimulation of E/I neurons -> sets firing rates and changes behavior
+    I_ths = [0.8, 0.6] #background stimulation of E/I neurons -> sets firing rates and changes behavior
     # to some degree # I_ths = [5.34,2.61] 2.13,
     #              1.24# 10,15,Hzh
 
@@ -73,25 +73,25 @@ if __name__ == '__main__':
     params['I_th_I'] = I_ths[1]
 
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
-    stdp_params = {"tau": 1000.0,
-            "rho": 0.01,
-            "eta": 0.05,
+    stdp_params = {"tau": 50.0,
+            "rho": 0.001,
+            "eta": 0.003,
             "wMin": -5.0,
             "wMax": 5.0,
             "tau_h": 0.0,
             "lambda_h": 0.0,
-            "lambda_n": 0.000,
+            "lambda_n": 0.0,
             "z_star": 5,
                    }
 
-    stdp_params_inner = {"tau": 1000.0,
+    stdp_params_inner = {"tau": 0.0,
                    "rho": 0.0,
                    "eta": 0.0,
                    "wMin": -5.0,
                    "wMax": 5.0,
-                   "tau_h": 1000,
+                   "tau_h": 50.0,
                    "lambda_h": 0.001,
-                   "lambda_n": 0.05,
+                   "lambda_n": 0.01,
                    "z_star": 5,
                          }
 
@@ -136,11 +136,17 @@ if __name__ == '__main__':
         # EI_Network.setup_network()
         # EI_Network.build_model()
         # EI_Network.load_model()
-        info = EI_Network.get_simulation(GPUspecificConstraint=10e18)
+        info = EI_Network.get_simulation(GPUspecificConstraint=10e28)
         print(info)
 
         for ii in range(50):
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+
+        EI_Network.make_synapse_matrices()
+        EI_Network.create_full_network_connectivity_matrix()
+        EI_Network.display_full_network_connectivity_matrix()
+        EI_Network.display_full_normalized_network_connectivity_matrix()
+        EI_Network.plot_markov_chain(transition_matrix)
 
         # Training
         num_epochs_train = 20
@@ -183,6 +189,7 @@ if __name__ == '__main__':
                     attention_trace.append(attention_values)
 
             spikes = EI_Network.get_spiketimes_section(timeZero=current_time)
+            #spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
             if epoch == 0:
                 first_epoch_spikes_train = spikes
@@ -197,33 +204,33 @@ if __name__ == '__main__':
             g_trace.append(first_synapse.vars["g"].view[:].copy())
             #z_trace.append(first_synapse.vars["z"].view[:].copy())
 
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        for epoch, g_trace in enumerate(g_trace):
-            ax1.plot(g_trace, '-o')
-        ax1.set_title("Synaptic Weights (g) Over All Epochs")
-        ax1.set_xlabel("Time (ms)")
-        ax1.set_ylabel("Weight (g)")
-        plt.show()
-
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        for epoch, z_trace in enumerate(z_trace):
-            ax2.plot(z_trace, '-o')
-        ax2.set_title("Homeostatic Variables (z) Over All Epochs")
-        ax2.set_xlabel("Time (ms)")
-        ax2.set_ylabel("Homeostatic Variable (z)")
-        plt.show()
-
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        for stim_start, stim_end in zip(stim_starts, stim_ends):
-            ax3.axvspan(stim_start, stim_end, color='green', alpha=0.3, label='stimuli')
-        for stim_start in stim_starts:
-            ax3.axvspan(stim_start + params['stim_duration'],
-                        stim_start + params['stim_duration'] - params['inter_stim_delay'], color='red', alpha=0.3, label='attention')
-        ax3.set_title("Stimuli and Attention")
-        ax3.set_xlabel("Time (ms)")
-        ax3.set_ylabel("Stimuli / Attention")
-        ax3.legend()
-        plt.show()
+        # fig1, ax1 = plt.subplots(figsize=(10, 5))
+        # for epoch, g_trace in enumerate(g_trace):
+        #     ax1.plot(g_trace, '-o')
+        # ax1.set_title("Synaptic Weights (g) Over All Epochs")
+        # ax1.set_xlabel("Time (ms)")
+        # ax1.set_ylabel("Weight (g)")
+        # plt.show()
+        #
+        # fig2, ax2 = plt.subplots(figsize=(10, 5))
+        # for epoch, z_trace in enumerate(z_trace):
+        #     ax2.plot(z_trace, '-o')
+        # ax2.set_title("Homeostatic Variables (z) Over All Epochs")
+        # ax2.set_xlabel("Time (ms)")
+        # ax2.set_ylabel("Homeostatic Variable (z)")
+        # plt.show()
+        #
+        # fig3, ax3 = plt.subplots(figsize=(10, 5))
+        # for stim_start, stim_end in zip(stim_starts, stim_ends):
+        #     ax3.axvspan(stim_start, stim_end, color='green', alpha=0.3, label='stimuli')
+        # for stim_start in stim_starts:
+        #     ax3.axvspan(stim_start + params['stim_duration'],
+        #                 stim_start + params['stim_duration'] - params['inter_stim_delay'], color='red', alpha=0.3, label='attention')
+        # ax3.set_title("Stimuli and Attention")
+        # ax3.set_xlabel("Time (ms)")
+        # ax3.set_ylabel("Stimuli / Attention")
+        # ax3.legend()
+        # plt.show()
 
         # Testing
         first_element_sequence = [sequence[0]]

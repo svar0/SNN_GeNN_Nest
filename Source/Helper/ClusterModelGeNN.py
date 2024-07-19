@@ -332,9 +332,8 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                                 delaySteps,
                                                                 pre, post,
                                                                 symmetric_stdp, self.params["stdp_params_inner"],
-                                                                {'g': 0,
-                                                                 'attention': 1,
-                                                                 #'log_firing_prob': 0.1
+                                                                {'g': self.params['g'],
+                                                                 'attention': 0,
                                                                  },
                                                                 {},
                                                                 {"z": self.params['z'],
@@ -346,8 +345,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                                                           pre, post,
                                                           symmetric_stdp, self.stdp_params,
                                                           {'g': self.params['g'],
-                                                           'attention': 1,
-                                                           #'log_firing_prob': 0.1
+                                                           'attention': 0,
                                                           },
                                                           {},
                                                           {"z": self.params['z'],
@@ -530,7 +528,7 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                     for synapse in self.synapses:
                         synapse.pull_var_from_device("g")
                         synapse.pull_var_from_device("z")
-                        synapse.pull_var_from_device("attention")
+                        #synapse.pull_var_from_device("attention")
                 self.model.step_time()
 
     def get_spiketimes_section(self, timeZero = 0):
