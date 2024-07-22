@@ -466,21 +466,19 @@ def define_symmetric_stdp():
         post_var_name_types=[("z", "scalar")],
         derived_params=[
             ("Pz", genn_model.create_dpf_class(lambda pars, dt:
-                                                np.exp(
-                                                    -dt / (pars[4])))()),
+                                                np.exp(-dt / (pars[4])))()),
         ],
-
         sim_code="""
         $(addToInSyn, $(g));
         const scalar dt = $(t) - $(sT_post);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g)- $(eta) * timing* $(attention);
+        const scalar newWeight = $(g)- $(eta) * timing * $(attention)-($(lambda_n));
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         learn_post_code="""
         const scalar dt = $(t) - $(sT_pre);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g) + $(eta) * timing * $(attention)  + ($(lambda_h) * ($(z_star)-$(z)))- $(lambda_n);
+        const scalar newWeight = $(g) + $(eta) * timing * $(attention) + $(lambda_h) * ($(z_star)-$(z));
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         post_spike_code="""
