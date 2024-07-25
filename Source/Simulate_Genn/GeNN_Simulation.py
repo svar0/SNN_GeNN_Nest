@@ -50,15 +50,17 @@ if __name__ == '__main__':
 
     startTime = time.time()
     baseline = {'N_E': 80, 'N_I': 20,  # number of E/I neurons -> typical 4:1
-                'simtime': 360, 'warmup': 0}
+'warmup': 0,'simtime': 500}
 
-    params = {'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
-              'neuron_type': 'iaf_psc_exp', 'simtime': 360, 'delta_I_xE': 0.,
+    params = {"randseed": 2, 'n_jobs': CPUcount, 'N_E': FactorSize * baseline['N_E'], 'N_I': FactorSize * baseline['N_I'], 'dt': 0.1,
+              'neuron_type': 'iaf_psc_exp', 'simtime': 500, 'delta_I_xE': 0.,
               'delta_I_xI': 0., 'record_voltage': False, 'record_from': 1, 'warmup': 0,
-              'Q': 10, 'stim_amp': 2.0, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 1.5,
+              'Q': 10, 'stim_amp': 1.5, 'stim_duration': 150, 'inter_stim_delay': 50.0, 'stim_amp_test': 0.6, #gia test only for the first cluster
+              'stim_amp_all':0.0, #Ioffset
+              'stim_amp_test_all': 0.5,# gia test stim all the clusters
               'g': 0.0, 'z': 5
               }
-    params['simtime'] = 350
+    params['simtime'] = 500
 
     jip_ratio = 0.7  # 0.7 default value  #works with 0.95 and gif wo adaptation
     jep = 6.5 #5.8  # 2.8  #7 # clustering strength
@@ -74,23 +76,23 @@ if __name__ == '__main__':
     # Learning rule (STDP, Homeostasis and Depression Term parameters)
     stdp_params = {"tau": 20.0,
             "rho": 0.001,
-            "eta": 0.5,
+            "eta": 0.09,
             "wMin": -5.0,
             "wMax": 5.0,
-            "tau_h": 500.0,
+            "tau_h": 200.0,
             "lambda_h": 0.0,
-            "lambda_n": 0.002,
+            "lambda_forgetting": 0.002,
             "z_star": 5,
                    }
 
-    stdp_params_inner = {"tau": 10.0,
+    stdp_params_inner = {"tau": 20.0,
                    "rho": 0.00,
                    "eta": 0.0,
                    "wMin": -5.0,
                    "wMax": 5.0,
-                   "tau_h": 500.0,
+                   "tau_h": 200.0,
                    "lambda_h": 0.002,
-                   "lambda_n": 0.00,
+                   "lambda_forgetting": 0.00,
                    "z_star": 5,
                          }
 
@@ -124,6 +126,7 @@ if __name__ == '__main__':
 
         EI_Network.set_model_build_pipeline([
             lambda: EI_Network.setup_GeNN(Name="EICluster" + str(sequence)),
+            EI_Network.clearTiming,
             EI_Network.create_populations,
             lambda: EI_Network.create_stimulation(sequence),
             EI_Network.create_recording_devices,
@@ -141,7 +144,7 @@ if __name__ == '__main__':
         for ii in range(50):
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
         # Training
-        num_epochs_train = 5
+        num_epochs_train = 100
 
         g_trace = []
         z_trace = []
@@ -184,10 +187,9 @@ if __name__ == '__main__':
 
             if epoch == 0:
                 first_epoch_spikes_train = spikes
-            if epoch == num_epochs_train - 2:
-                last_epoch_spikes_train = spikes
             if epoch == num_epochs_train - 1:
-                last_epoch_spikes_train_without = spikes
+                last_epoch_spikes_train = spikes
+
 
             first_synapse = EI_Network.synapses[0]
             first_synapse.pull_var_from_device("g")
@@ -224,6 +226,7 @@ if __name__ == '__main__':
         # plt.show()
 
         # Testing
+        # Stimulation to all the clusters
         first_element_sequence = [sequence[0]]
         stim_starts_test = [params['warmup']]
         stim_ends_test = [params['warmup'] + params['stim_duration']]
@@ -231,9 +234,26 @@ if __name__ == '__main__':
         params['stim_ends'] = stim_ends_test
         last_epoch_spikes_test = None
 
-        num_epochs_test = 2
+        num_epochs_test_all = 10
+        num_epochs_test_1st = 1
 
-        for epoch in range(num_epochs_test):
+
+        # for epoch in range(num_epochs_test_all):
+        #     for ii, pop in enumerate(EI_Network.current_source):
+        #         #if ii == first_element_sequence[0]:
+        #             pop.extra_global_params['t_onset'].view[:] = EI_Network.model.t
+        #             pop.extra_global_params['t_offset'].view[:] = EI_Network.model.t + 1000
+        #             pop.extra_global_params['strength'].view[:] = params['stim_amp_test_all']
+        #     print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
+        #     spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
+        #
+        #     if epoch == 0:
+        #         first_epoch_spikes_test_all = spikes
+        #     if epoch == num_epochs_test_all - 1:
+        #         last_epoch_spikes_test_all = spikes
+
+        # 1st element
+        for epoch in range(num_epochs_test_1st):
             for ii, pop in enumerate(EI_Network.current_source):
                 if ii == first_element_sequence[0]:
                     pop.extra_global_params['t_onset'].view[:] = stim_starts_test[0] + EI_Network.model.t
@@ -242,8 +262,8 @@ if __name__ == '__main__':
             print(f"Running simulation for epoch {epoch + 1} (Testing with stimulating only the first element)")
             spikes = EI_Network.simulate_and_get_recordings(timeZero=EI_Network.model.t)
 
-            if epoch == num_epochs_test - 1:
-                last_epoch_spikes_test = spikes
+            if epoch == num_epochs_test_1st - 1:
+                last_epoch_spikes_test_1st = spikes
 
         EI_Network.make_synapse_matrices()
         EI_Network.create_full_network_connectivity_matrix()
@@ -254,4 +274,7 @@ if __name__ == '__main__':
 
         EI_Network.plot_spikes(first_epoch_spikes_train, "Spiketimes for Sequence: (First Epoch of Training)", stim_starts, stim_ends, sequence)
         EI_Network.plot_spikes(last_epoch_spikes_train, "Spiketimes for Sequence: (Last Epoch of Training)", stim_starts, stim_ends, sequence)
-        EI_Network.plot_spikes(last_epoch_spikes_test, "Spiketimes for First Element of Sequence: (Last Epoch of Testing)", stim_starts, stim_ends, sequence)
+        #EI_Network.plot_spikes(first_epoch_spikes_test_all, "Spiketimes of Stimulate all the Sequence: (First Epoch of Testing)", stim_starts, stim_ends, sequence)
+        #EI_Network.plot_spikes(last_epoch_spikes_test_all, "Spiketimes of Stimulate all the Sequence: (Last Epoch of Testing)", stim_starts, stim_ends, sequence)
+        EI_Network.plot_spikes(last_epoch_spikes_test_1st, "Spiketimes of Stimulate only the first element of the Sequence:", stim_starts, stim_ends, sequence)
+

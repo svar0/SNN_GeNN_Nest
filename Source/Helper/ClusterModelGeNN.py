@@ -102,6 +102,10 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
             I_xI = self.params['I_th_I'] * (self.params['V_th_I'] - self.params['E_L']) / self.params['tau_I'] * \
                    self.params['C_m']
 
+        stim_amp_all = self.params['stim_amp_all']
+        I_xE += stim_amp_all
+        I_xI += stim_amp_all
+
         if 'iaf_psc_exp' in self.params['neuron_type']:
             pass
         else:
@@ -528,7 +532,6 @@ class ClusteredNetworkGeNN(ClusterModelBase.ClusteredNetworkBase):
                     for synapse in self.synapses:
                         synapse.pull_var_from_device("g")
                         synapse.pull_var_from_device("z")
-                        #synapse.pull_var_from_device("attention")
                 self.model.step_time()
 
     def get_spiketimes_section(self, timeZero = 0):

@@ -461,7 +461,7 @@ def define_Poisson_model():
 def define_symmetric_stdp():
     wu = genn_model.create_custom_weight_update_class(
         "symmetric_stdp",
-        param_names=["tau", "rho", "eta", "lambda_n", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
+        param_names=["tau", "rho", "eta", "lambda_forgetting", "tau_h", "z_star", "lambda_h", "wMin", "wMax"],
         var_name_types=[("g", "scalar"), ("attention", "scalar")],
         post_var_name_types=[("z", "scalar")],
         derived_params=[
@@ -472,7 +472,7 @@ def define_symmetric_stdp():
         $(addToInSyn, $(g));
         const scalar dt = $(t) - $(sT_post);
         const scalar timing = exp(-dt / $(tau)) - $(rho);
-        const scalar newWeight = $(g)- $(eta) * timing * $(attention)-($(lambda_n));
+        const scalar newWeight = $(g)- $(eta) * timing * $(attention)-($(lambda_forgetting));
         $(g) = fmin($(wMax), fmax($(wMin), newWeight));
         """,
         learn_post_code="""
